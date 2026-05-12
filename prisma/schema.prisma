@@ -1,0 +1,115 @@
+// Smart Note · Prisma Schema
+// 数据库：Supabase Postgres
+// 鉴权用户由 Supabase Auth 管理（auth.users 表），业务表通过 userId(uuid) 关联
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// 用户业务侧资料（与 auth.users 一对一）
+model Profile {
+  id        String   @id @db.Uuid
+  email     String?
+  username  String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  groups            Group[]
+  notes             Note[]
+  todoItems         TodoItem[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("profiles")
+}
+
+/// 自定义分组
+model Group {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes Note[]
+
+  @@index([userId])
+  @@map("groups")
+}
+
+/// 便签
+model Note {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  groupId     String?   @map("group_id") @db.Uuid
+  title       String?
+  /// Tiptap JSON 文档
+  contentJson Json      @default("{}") @map("content_json")
+  /// 用于全文搜索的纯文本快照
+  contentText String    @default("") @map("content_text")
+  /// 颜色标记，对应 NOTE_COLORS.id
+  color       String?
+  isPinned    Boolean   @default(false) @map("is_pinned")
+  isDeleted   Boolean   @default(false) @map("is_deleted")
+  deletedAt   DateTime? @map("deleted_at")
+  /// 同步版本号，用于 LWW 冲突解决
+  syncVersion Int       @default(0) @map("sync_version")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user      Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  todoItems TodoItem[]
+
+  @@index([userId, isDeleted, isPinned, updatedAt])
+  @@index([groupId])
+  @@map("notes")
+}
+
+/// 从便签 contentJson 中抽取的待办项（用于聚合视图与提醒查询）
+model TodoItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  noteId      String    @map("note_id") @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  text        String
+  isDone      Boolean   @default(false) @map("is_done")
+  dueAt       DateTime? @map("due_at")
+  remindAt    DateTime? @map("remind_at")
+  /// 回链到 contentJson 中的节点 id
+  blockId     String    @map("block_id")
+  syncVersion Int       @default(0) @map("sync_version")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  note Note    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, remindAt])
+  @@index([userId, isDone, dueAt])
+  @@index([noteId])
+  @@map("todo_items")
+}
+
+/// 推送订阅信息（FCM / Web Push）
+model PushSubscription {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  deviceType String   @map("device_type") // 'android' | 'web'
+  endpoint   String
+  keys       Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
+}

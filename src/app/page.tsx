@@ -1,65 +1,89 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+import { CheckSquare, FileText, LogIn, Sparkles } from "lucide-react";
+
+function envStatus() {
+  const supabaseConfigured =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-project");
+  const dbConfigured =
+    !!process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("[PROJECT_REF]");
+  return { supabaseConfigured, dbConfigured };
+}
 
 export default function Home() {
+  const { supabaseConfigured, dbConfigured } = envStatus();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="flex-1 flex items-center justify-center p-6">
+      <div className="w-full max-w-2xl space-y-6">
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-sm">
+            <Sparkles className="size-3.5" />
+            M0 工程骨架已就绪
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight">{APP_NAME}</h1>
+          <p className="text-muted-foreground">{APP_DESCRIPTION}</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">环境变量状态</CardTitle>
+            <CardDescription>
+              当前为占位值时，登录与同步功能不可用。复制{" "}
+              <code className="text-xs px-1 py-0.5 rounded bg-muted">.env.example</code> 为{" "}
+              <code className="text-xs px-1 py-0.5 rounded bg-muted">.env.local</code> 并填入真实 Supabase 配置。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Badge variant={supabaseConfigured ? "default" : "secondary"}>
+              Supabase: {supabaseConfigured ? "已配置" : "占位中"}
+            </Badge>
+            <Badge variant={dbConfigured ? "default" : "secondary"}>
+              DATABASE_URL: {dbConfigured ? "已配置" : "占位中"}
+            </Badge>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Link
+            href="/login"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-auto py-4 flex-col gap-1"
+            )}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <LogIn className="size-5" />
+            <span>登录</span>
+          </Link>
+          <Link
+            href="/notes"
+            className={cn(buttonVariants({ size: "lg" }), "h-auto py-4 flex-col gap-1")}
           >
-            Documentation
-          </a>
+            <FileText className="size-5" />
+            <span>便签</span>
+          </Link>
+          <Link
+            href="/todos"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "h-auto py-4 flex-col gap-1"
+            )}
+          >
+            <CheckSquare className="size-5" />
+            <span>待办</span>
+          </Link>
         </div>
-      </main>
-    </div>
+
+        <p className="text-center text-xs text-muted-foreground">
+          下一站：M1 便签 CRUD 与 Tiptap 富文本编辑器。
+        </p>
+      </div>
+    </main>
   );
 }
