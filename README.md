@@ -68,7 +68,15 @@ npm run dev
    npm run db:push
    ```
 
-6. 重启 dev server，登录功能即可联调。
+6. **启用行级安全（RLS）与策略**（消除 Dashboard 里「RLS Disabled in Public」告警）：
+
+   ```bash
+   npm run db:rls
+   ```
+
+   也可在 Supabase **SQL Editor** 中手动粘贴执行 [`supabase/migrations/20260513000000_enable_rls_policies.sql`](./supabase/migrations/20260513000000_enable_rls_policies.sql)。
+
+7. 重启 dev server，登录功能即可联调。
 
 ## 常用脚本
 
@@ -84,6 +92,7 @@ npm run dev
 | `npm run db:migrate` | 创建并应用迁移 |
 | `npm run db:studio` | 打开 Prisma Studio |
 | `npm run db:reset` | 重置数据库（开发环境） |
+| `npm run db:rls` | 执行 RLS + Policy SQL（可重复执行） |
 
 ## 目录结构
 
@@ -92,6 +101,8 @@ smart-todo/
 ├── 需求文档.md              # 产品需求文档（来源）
 ├── prisma/
 │   └── schema.prisma        # 数据模型
+├── supabase/
+│   └── migrations/          # 手写 SQL（RLS 等），非 Supabase CLI 必须
 ├── public/
 │   ├── manifest.json        # PWA 清单
 │   └── icons/               # 应用图标（M5 补）

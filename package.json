@@ -12,7 +12,8 @@
     "db:push": "dotenv -e .env.local -- prisma db push",
     "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
     "db:studio": "dotenv -e .env.local -- prisma studio",
-    "db:reset": "dotenv -e .env.local -- prisma migrate reset"
+    "db:reset": "dotenv -e .env.local -- prisma migrate reset",
+    "db:rls": "dotenv -e .env.local -- prisma db execute --schema prisma/schema.prisma --file supabase/migrations/20260513000000_enable_rls_policies.sql"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
