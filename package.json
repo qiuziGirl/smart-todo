@@ -13,7 +13,8 @@
     "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:reset": "dotenv -e .env.local -- prisma migrate reset",
-    "db:rls": "dotenv -e .env.local -- prisma db execute --schema prisma/schema.prisma --file supabase/migrations/20260513000000_enable_rls_policies.sql"
+    "db:rls": "dotenv -e .env.local -- prisma db execute --schema prisma/schema.prisma --file supabase/migrations/20260513000000_enable_rls_policies.sql",
+    "db:storage": "dotenv -e .env.local -- prisma db execute --schema prisma/schema.prisma --file supabase/migrations/20260513120000_storage_note_images.sql"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

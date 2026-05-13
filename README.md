@@ -21,8 +21,8 @@
 
 ## 当前进度
 
-- [x] **M0** 项目骨架（当前）
-- [ ] **M1** 便签 CRUD + 富文本编辑器
+- [x] **M0** 项目骨架
+- [x] **M1** 鉴权、分组、便签 CRUD、Tiptap 编辑器、图片上传（Storage）、回收站
 - [ ] **M2** 待办与聚合视图
 - [ ] **M3** 同步与离线
 - [ ] **M4** 推送 (Web Push + FCM)
@@ -42,7 +42,7 @@ npm install
 cp .env.example .env.local
 ```
 
-按需填入。M0 阶段允许保留占位值（应用可以启动，但登录/同步功能未启用）。
+按需填入。未配置 Supabase 时，落地页可打开但无法登录；配置后需完成下方「接入 Supabase」步骤。
 
 ### 3. 启动开发服务器
 
@@ -76,7 +76,18 @@ npm run dev
 
    也可在 Supabase **SQL Editor** 中手动粘贴执行 [`supabase/migrations/20260513000000_enable_rls_policies.sql`](./supabase/migrations/20260513000000_enable_rls_policies.sql)。
 
-7. 重启 dev server，登录功能即可联调。
+7. **Storage 图片桶**（便签内插图）：
+
+   ```bash
+   npm run db:storage
+   ```
+
+8. 在 **Authentication → URL Configuration** 中，将 **Redirect URLs** 加入你的站点回调，例如本地开发：
+
+   - `http://localhost:3000/auth/callback`
+   - 若 dev 使用其他端口，一并加入（如 `http://localhost:3001/auth/callback`）
+
+9. 重启 dev server，打开 `/login` 联调 GitHub / 邮箱登录与便签。
 
 ## 常用脚本
 
@@ -93,6 +104,7 @@ npm run dev
 | `npm run db:studio` | 打开 Prisma Studio |
 | `npm run db:reset` | 重置数据库（开发环境） |
 | `npm run db:rls` | 执行 RLS + Policy SQL（可重复执行） |
+| `npm run db:storage` | 创建 `note-images` 桶及 Storage 策略（可重复执行） |
 
 ## 目录结构
 

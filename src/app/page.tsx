@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { CheckSquare, FileText, LogIn, Sparkles } from "lucide-react";
+import { getSessionUser } from "@/lib/auth/session";
 
 function envStatus() {
   const supabaseConfigured =
@@ -16,16 +17,17 @@ function envStatus() {
   return { supabaseConfigured, dbConfigured };
 }
 
-export default function Home() {
+export default async function Home() {
   const { supabaseConfigured, dbConfigured } = envStatus();
+  const user = await getSessionUser();
 
   return (
-    <main className="flex-1 flex items-center justify-center p-6">
+    <main className="flex flex-1 items-center justify-center p-6">
       <div className="w-full max-w-2xl space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted text-sm">
+        <div className="space-y-2 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-sm">
             <Sparkles className="size-3.5" />
-            M0 工程骨架已就绪
+            {user ? "M1 便签与编辑器已可用" : "M0 工程骨架已就绪"}
           </div>
           <h1 className="text-4xl font-bold tracking-tight">{APP_NAME}</h1>
           <p className="text-muted-foreground">{APP_DESCRIPTION}</p>
@@ -35,9 +37,8 @@ export default function Home() {
           <CardHeader>
             <CardTitle className="text-base">环境变量状态</CardTitle>
             <CardDescription>
-              当前为占位值时，登录与同步功能不可用。复制{" "}
-              <code className="text-xs px-1 py-0.5 rounded bg-muted">.env.example</code> 为{" "}
-              <code className="text-xs px-1 py-0.5 rounded bg-muted">.env.local</code> 并填入真实 Supabase 配置。
+              复制 <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.example</code> 为{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">.env.local</code> 并填入 Supabase 与数据库连接。
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -52,18 +53,18 @@ export default function Home() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           <Link
-            href="/login"
+            href={user ? "/notes" : "/login"}
             className={cn(
               buttonVariants({ variant: "outline", size: "lg" }),
-              "h-auto py-4 flex-col gap-1"
+              "h-auto flex-col gap-1 py-4"
             )}
           >
             <LogIn className="size-5" />
-            <span>登录</span>
+            <span>{user ? "进入便签" : "登录"}</span>
           </Link>
           <Link
             href="/notes"
-            className={cn(buttonVariants({ size: "lg" }), "h-auto py-4 flex-col gap-1")}
+            className={cn(buttonVariants({ size: "lg" }), "h-auto flex-col gap-1 py-4")}
           >
             <FileText className="size-5" />
             <span>便签</span>
@@ -72,7 +73,7 @@ export default function Home() {
             href="/todos"
             className={cn(
               buttonVariants({ variant: "outline", size: "lg" }),
-              "h-auto py-4 flex-col gap-1"
+              "h-auto flex-col gap-1 py-4"
             )}
           >
             <CheckSquare className="size-5" />
@@ -81,7 +82,7 @@ export default function Home() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          下一站：M1 便签 CRUD 与 Tiptap 富文本编辑器。
+          {user ? "你已登录，可直接打开便签。" : "登录后即可创建分组与富文本便签。"}
         </p>
       </div>
     </main>
