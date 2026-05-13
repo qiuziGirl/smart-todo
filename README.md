@@ -26,7 +26,7 @@
 - [x] **M2** 待办与聚合视图（`todo_items` 与便签 JSON 同步、`/todos` 今日/未来/已过期/无到期日、聚合勾选回写便签）
 
 > **数据库**：若本地库在 M2 之前已创建，请再执行一次 `npm run db:push`，以创建 `todo_items(note_id, block_id)` 唯一约束（Prisma `@@unique`）。
-- [ ] **M3** 同步与离线
+- [x] **M3** 同步与离线：Supabase Realtime 订阅 `notes` / `groups` / `todo_items` + 防抖 `router.refresh`；IndexedDB 离线保存队列与成功快照缓存；`syncVersion` 乐观锁与冲突提示；联网自动重放队列（`npm run db:realtime` 将表加入 publication，见下文）
 - [ ] **M4** 推送 (Web Push + FCM)
 - [ ] **M5** PWA 与体验细节
 
@@ -101,6 +101,17 @@ npm run dev
 
 9. 重启 dev server，打开 `/login` 联调 GitHub / 邮箱登录与便签。
 
+10. **Realtime（M3，多标签/多设备列表刷新）**  
+    - 在 Supabase **Database → Publications** 确认 **`supabase_realtime`** publication 存在（默认即有）。  
+    - 在本机执行（将业务表注册到 publication，供 `postgres_changes` 使用）：
+
+      ```bash
+      npm run db:realtime
+      ```
+
+      SQL 文件：[`supabase/migrations/20260513140000_realtime_publication.sql`](./supabase/migrations/20260513140000_realtime_publication.sql)。若某表已在 publication 中，对应 `ALTER` 可能报错，可在 Dashboard 中确认表已勾选后忽略。  
+    - 官方说明：[Realtime Postgres Changes](https://supabase.com/docs/guides/realtime/postgres-changes)。
+
 ## 常用脚本
 
 | 命令 | 说明 |
@@ -117,6 +128,7 @@ npm run dev
 | `npm run db:reset` | 重置数据库（开发环境） |
 | `npm run db:rls` | 执行 RLS + Policy SQL（可重复执行） |
 | `npm run db:storage` | 创建 `note-images` 桶及 Storage 策略（可重复执行） |
+| `npm run db:realtime` | 将 `notes` / `groups` / `todo_items` 加入 `supabase_realtime` publication（可重复执行，已存在表可能报错可忽略） |
 
 ## 目录结构
 
@@ -137,7 +149,8 @@ smart-todo/
     │   ├── (app)/todos/     # 待办聚合
     │   └── api/health/      # 健康检查
     ├── components/
-    │   ├── ui/              # shadcn/ui
+    │   ├── app/               # 全局面桥（M3 Realtime / 离线 flush）
+    │   ├── ui/                # shadcn/ui
     │   ├── editor/          # Tiptap 编辑器（M1）
     │   ├── notes/           # 便签业务组件
     │   ├── todos/           # 待办业务组件
@@ -147,6 +160,8 @@ smart-todo/
     ├── lib/
     │   ├── supabase/        # Supabase 客户端封装
     │   ├── db/              # Prisma 客户端
+    │   ├── offline/         # IndexedDB 离线队列与缓存（M3）
+    │   ├── todo/            # 待办与便签正文同步
     │   ├── utils.ts         # 工具函数
     │   └── constants.ts     # 常量
     ├── types/               # 全局类型

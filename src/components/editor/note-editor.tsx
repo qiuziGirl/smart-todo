@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
@@ -37,8 +38,23 @@ import { uploadNoteImage } from "@/actions/upload";
 import { NOTE_COLORS } from "@/lib/constants";
 import type { GroupListItem } from "@/types/note";
 import { CustomTaskItem } from "@/lib/tiptap/custom-task-item";
+import { enqueueNoteSave } from "@/lib/offline/note-outbox";
+import { writeNoteCache } from "@/lib/offline/note-cache";
 
 const DEBOUNCE_MS = 650;
+
+function isLikelyNetworkError(e: unknown): boolean {
+  if (!(e instanceof Error)) {
+    return false;
+  }
+  const m = e.message.toLowerCase();
+  return (
+    m.includes("fetch") ||
+    m.includes("network") ||
+    m.includes("failed to fetch") ||
+    e.name === "TypeError"
+  );
+}
 
 function formatForDatetimeLocal(iso: string | undefined): string {
   if (!iso) {
@@ -61,6 +77,8 @@ export type NoteEditorProps = {
   groups: GroupListItem[];
   /** 从 `/todos` 跳转时用于滚动到对应 taskItem（依赖 UniqueID 的 `data-id`） */
   anchorBlockId?: string | null;
+  /** 服务端 `notes.sync_version`，用于并发保存与 Realtime 刷新检测 */
+  serverSyncVersion: number;
 };
 
 export function NoteEditor({
@@ -71,6 +89,7 @@ export function NoteEditor({
   initialGroupId,
   groups,
   anchorBlockId = null,
+  serverSyncVersion,
 }: NoteEditorProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -78,8 +97,13 @@ export function NoteEditor({
   const [pinned, setPinned] = useState(initialPinned);
   const [color, setColor] = useState<string | null>(initialColor);
   const [groupId, setGroupId] = useState<string | null>(initialGroupId);
+  const [lastSavedSyncVersion, setLastSavedSyncVersion] = useState(serverSyncVersion);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const dirtySinceSaveRef = useRef(false);
+  const warnedRemoteRev = useRef<number | null>(null);
+  const prevNoteIdRef = useRef(noteId);
+  const flushSaveRef = useRef<(json: unknown) => Promise<void>>(async () => {});
 
   const extensions = useMemo(
     () => [
@@ -109,26 +133,66 @@ export function NoteEditor({
   const flushSave = useCallback(
     async (json: unknown) => {
       setSaveState("saving");
-      const res = await saveNoteFromEditor(noteId, json);
-      if (res && typeof res === "object" && "error" in res && res.error) {
+      let res: Awaited<ReturnType<typeof saveNoteFromEditor>>;
+      try {
+        res = await saveNoteFromEditor(noteId, json, {
+          expectedSyncVersion: lastSavedSyncVersion,
+        });
+      } catch (e) {
+        if (isLikelyNetworkError(e)) {
+          await enqueueNoteSave(noteId, json);
+          setSaveState("error");
+          toast.warning("网络不可用，内容已加入本地队列，联网后将自动上传");
+          return;
+        }
         setSaveState("error");
+        toast.error("保存失败");
         return;
       }
-      setSaveState("saved");
-      router.refresh();
+      if ("conflict" in res && res.conflict) {
+        setSaveState("error");
+        toast.error("保存冲突：便签已在其他端更新", {
+          action: {
+            label: "重新加载",
+            onClick: () => router.refresh(),
+          },
+        });
+        return;
+      }
+      if ("error" in res && res.error) {
+        setSaveState("error");
+        toast.error(res.error);
+        return;
+      }
+      if ("ok" in res && res.ok) {
+        setLastSavedSyncVersion(res.syncVersion);
+        dirtySinceSaveRef.current = false;
+        try {
+          await writeNoteCache(noteId, {
+            contentJson: json,
+            syncVersion: res.syncVersion,
+            savedAt: Date.now(),
+          });
+        } catch {
+          /* ignore cache write errors */
+        }
+        setSaveState("saved");
+        router.refresh();
+      }
     },
-    [noteId, router]
+    [noteId, router, lastSavedSyncVersion]
   );
 
-  const scheduleSave = useCallback(
-    (json: unknown) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        void flushSave(json);
-      }, DEBOUNCE_MS);
-    },
-    [flushSave]
-  );
+  useEffect(() => {
+    flushSaveRef.current = flushSave;
+  }, [flushSave]);
+
+  const scheduleSave = useCallback((json: unknown) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      void flushSaveRef.current(json);
+    }, DEBOUNCE_MS);
+  }, []);
 
   const editor = useEditor({
     extensions,
@@ -140,7 +204,10 @@ export function NoteEditor({
           "tiptap-editor min-h-[50vh] max-w-none px-4 py-3 text-sm leading-relaxed outline-none focus:outline-none",
       },
     },
-    onUpdate: ({ editor: ed }) => {
+    onUpdate: ({ editor: ed, transaction }) => {
+      if (transaction.docChanged) {
+        dirtySinceSaveRef.current = true;
+      }
       scheduleSave(ed.getJSON());
     },
     onBlur: ({ editor: ed }) => {
@@ -148,9 +215,47 @@ export function NoteEditor({
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      void flushSave(ed.getJSON());
+      void flushSaveRef.current(ed.getJSON());
     },
   });
+
+  useEffect(() => {
+    if (prevNoteIdRef.current !== noteId) {
+      prevNoteIdRef.current = noteId;
+      setLastSavedSyncVersion(serverSyncVersion);
+      dirtySinceSaveRef.current = false;
+      warnedRemoteRev.current = null;
+    }
+  }, [noteId, serverSyncVersion]);
+
+  useEffect(() => {
+    if (serverSyncVersion <= lastSavedSyncVersion) {
+      return;
+    }
+    if (!editor || editor.isDestroyed) {
+      return;
+    }
+    if (!dirtySinceSaveRef.current) {
+      editor.commands.setContent(initialContent, { emitUpdate: false });
+      setLastSavedSyncVersion(serverSyncVersion);
+      warnedRemoteRev.current = null;
+      return;
+    }
+    if (warnedRemoteRev.current !== serverSyncVersion) {
+      warnedRemoteRev.current = serverSyncVersion;
+      toast.info("便签已在其他端更新", {
+        action: {
+          label: "载入最新",
+          onClick: () => {
+            editor.commands.setContent(initialContent, { emitUpdate: false });
+            setLastSavedSyncVersion(serverSyncVersion);
+            dirtySinceSaveRef.current = false;
+            router.refresh();
+          },
+        },
+      });
+    }
+  }, [serverSyncVersion, lastSavedSyncVersion, initialContent, editor, router]);
 
   useEffect(() => {
     if (!editor) return;

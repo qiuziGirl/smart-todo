@@ -16,6 +16,14 @@ export default async function NoteDetailPage({
   const [note, groups] = await Promise.all([
     prisma.note.findFirst({
       where: { id: noteId, userId: user.id, isDeleted: false },
+      select: {
+        id: true,
+        contentJson: true,
+        isPinned: true,
+        color: true,
+        groupId: true,
+        syncVersion: true,
+      },
     }),
     prisma.group.findMany({
       where: { userId: user.id },
@@ -39,6 +47,7 @@ export default async function NoteDetailPage({
       initialPinned={note.isPinned}
       initialColor={note.color}
       initialGroupId={note.groupId}
+      serverSyncVersion={note.syncVersion}
       groups={groups}
       anchorBlockId={block ?? null}
     />

@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/session";
 import { ensureProfileFromUser } from "@/lib/auth/profile";
 import { signOut } from "@/actions/auth";
 import { createBlankNote } from "@/actions/notes";
+import { AppSyncBridge } from "@/components/app/app-sync-bridge";
 
 export default async function AppLayout({
   children,
@@ -16,6 +17,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <AppSyncBridge userId={user.id} />
       <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
         <Link href="/notes" className="shrink-0 font-semibold">
           Smart Note
