@@ -6,6 +6,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
 import { deriveTitleAndPlainText } from "@/lib/tiptap/content";
+import { ensureTaskItemBlockIds } from "@/lib/tiptap/todo-doc";
+import { syncTodoItemsForNote } from "@/lib/todo/sync-todo-items-for-note";
 
 const defaultDoc: Prisma.InputJsonValue = {
   type: "doc",
@@ -56,27 +58,51 @@ export async function updateNoteContent(
   title: string | null
 ) {
   const user = await requireUser();
-  const updated = await prisma.note.updateMany({
-    where: { id: noteId, userId: user.id, isDeleted: false },
-    data: {
-      contentJson,
-      contentText,
-      title,
-      syncVersion: { increment: 1 },
-    },
-  });
-  if (updated.count === 0) {
-    return { error: "便签不存在或已删除" };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.note.updateMany({
+        where: { id: noteId, userId: user.id, isDeleted: false },
+        data: {
+          contentJson,
+          contentText,
+          title,
+          syncVersion: { increment: 1 },
+        },
+      });
+      if (updated.count === 0) {
+        throw new Error("NOTE_NOT_FOUND");
+      }
+      const n = await tx.note.findFirst({
+        where: { id: noteId, userId: user.id },
+        select: { syncVersion: true },
+      });
+      if (!n) {
+        throw new Error("NOTE_NOT_FOUND");
+      }
+      await syncTodoItemsForNote(tx, {
+        userId: user.id,
+        noteId,
+        contentJson,
+        noteSyncVersion: n.syncVersion,
+      });
+    });
+  } catch (e) {
+    if (e instanceof Error && e.message === "NOTE_NOT_FOUND") {
+      return { error: "便签不存在或已删除" };
+    }
+    throw e;
   }
   revalidatePath("/notes", "layout");
   revalidatePath(`/notes/${noteId}`, "page");
+  revalidatePath("/todos", "page");
   return { ok: true };
 }
 
 /** 从编辑器 JSON 计算纯文本与标题并保存 */
 export async function saveNoteFromEditor(noteId: string, docJson: unknown) {
-  const { contentText, title } = deriveTitleAndPlainText(docJson);
-  return updateNoteContent(noteId, docJson as Prisma.InputJsonValue, contentText, title);
+  const withIds = ensureTaskItemBlockIds(docJson) as Prisma.InputJsonValue;
+  const { contentText, title } = deriveTitleAndPlainText(withIds);
+  return updateNoteContent(noteId, withIds, contentText, title);
 }
 
 export async function moveNoteToGroup(noteId: string, groupId: string | null) {
@@ -108,6 +134,7 @@ export async function softDeleteNote(noteId: string) {
   });
   revalidatePath("/notes", "layout");
   revalidatePath("/notes/trash", "page");
+  revalidatePath("/todos", "page");
   redirect("/notes");
 }
 
@@ -119,6 +146,7 @@ export async function restoreNote(noteId: string) {
   });
   revalidatePath("/notes", "layout");
   revalidatePath("/notes/trash", "page");
+  revalidatePath("/todos", "page");
   redirect(`/notes/${noteId}`);
 }
 
@@ -150,5 +178,6 @@ export async function permanentlyDeleteNote(noteId: string) {
   });
   revalidatePath("/notes", "layout");
   revalidatePath("/notes/trash", "page");
+  revalidatePath("/todos", "page");
   redirect("/notes/trash");
 }

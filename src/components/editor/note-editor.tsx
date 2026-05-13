@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
+import UniqueID from "@tiptap/extension-unique-id";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -36,8 +36,21 @@ import {
 import { uploadNoteImage } from "@/actions/upload";
 import { NOTE_COLORS } from "@/lib/constants";
 import type { GroupListItem } from "@/types/note";
+import { CustomTaskItem } from "@/lib/tiptap/custom-task-item";
 
 const DEBOUNCE_MS = 650;
+
+function formatForDatetimeLocal(iso: string | undefined): string {
+  if (!iso) {
+    return "";
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return "";
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 export type NoteEditorProps = {
   noteId: string;
@@ -46,6 +59,8 @@ export type NoteEditorProps = {
   initialColor: string | null;
   initialGroupId: string | null;
   groups: GroupListItem[];
+  /** 从 `/todos` 跳转时用于滚动到对应 taskItem（依赖 UniqueID 的 `data-id`） */
+  anchorBlockId?: string | null;
 };
 
 export function NoteEditor({
@@ -55,6 +70,7 @@ export function NoteEditor({
   initialColor,
   initialGroupId,
   groups,
+  anchorBlockId = null,
 }: NoteEditorProps) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -73,7 +89,11 @@ export function NoteEditor({
         orderedList: { keepMarks: true, keepAttributes: false },
       }),
       TaskList,
-      TaskItem.configure({ nested: true }),
+      CustomTaskItem.configure({ nested: true }),
+      UniqueID.configure({
+        types: ["taskItem"],
+        attributeName: "id",
+      }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -165,6 +185,21 @@ export function NoteEditor({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!editor || !anchorBlockId) {
+      return;
+    }
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const root = editor.view.dom as HTMLElement;
+        const sel = `[data-id="${CSS.escape(anchorBlockId)}"]`;
+        const el = root.querySelector(sel);
+        el?.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [editor, anchorBlockId]);
 
   async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -300,6 +335,50 @@ export function NoteEditor({
         >
           <ListTodo className="size-4" />
         </Button>
+        {editor.isActive("taskItem") && (
+          <>
+            <Separator orientation="vertical" className="mx-0.5 h-6" />
+            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              到期
+              <input
+                type="date"
+                className="h-7 max-w-[132px] rounded border bg-background px-1 text-xs"
+                value={(() => {
+                  const v = editor.getAttributes("taskItem").dueAt as string | undefined;
+                  return v ? v.slice(0, 10) : "";
+                })()}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  editor
+                    .chain()
+                    .focus()
+                    .updateAttributes("taskItem", {
+                      dueAt: v ? `${v}T12:00:00.000Z` : null,
+                    })
+                    .run();
+                }}
+              />
+            </label>
+            <label className="flex max-w-[200px] items-center gap-1 text-xs text-muted-foreground sm:max-w-none">
+              提醒
+              <input
+                type="datetime-local"
+                className="h-7 max-w-[165px] rounded border bg-background px-1 text-xs"
+                value={formatForDatetimeLocal(editor.getAttributes("taskItem").remindAt as string | undefined)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  editor
+                    .chain()
+                    .focus()
+                    .updateAttributes("taskItem", {
+                      remindAt: v ? new Date(v).toISOString() : null,
+                    })
+                    .run();
+                }}
+              />
+            </label>
+          </>
+        )}
         <Separator orientation="vertical" className="mx-0.5 h-6" />
         <Button type="button" variant="ghost" size="icon-sm" onClick={onSetLink} aria-label="链接">
           <LinkIcon className="size-4" />

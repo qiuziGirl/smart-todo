@@ -23,7 +23,9 @@
 
 - [x] **M0** 项目骨架
 - [x] **M1** 鉴权、分组、便签 CRUD、Tiptap 编辑器、图片上传（Storage）、回收站
-- [ ] **M2** 待办与聚合视图
+- [x] **M2** 待办与聚合视图（`todo_items` 与便签 JSON 同步、`/todos` 今日/未来/已过期/无到期日、聚合勾选回写便签）
+
+> **数据库**：若本地库在 M2 之前已创建，请再执行一次 `npm run db:push`，以创建 `todo_items(note_id, block_id)` 唯一约束（Prisma `@@unique`）。
 - [ ] **M3** 同步与离线
 - [ ] **M4** 推送 (Web Push + FCM)
 - [ ] **M5** PWA 与体验细节

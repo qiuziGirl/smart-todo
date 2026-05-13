@@ -92,6 +92,7 @@ model TodoItem {
   note Note    @relation(fields: [noteId], references: [id], onDelete: Cascade)
   user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([noteId, blockId], name: "todo_items_note_id_block_id_key")
   @@index([userId, remindAt])
   @@index([userId, isDone, dueAt])
   @@index([noteId])

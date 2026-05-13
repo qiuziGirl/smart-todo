@@ -5,10 +5,13 @@ import { NoteEditorLoader } from "@/components/editor/note-editor-loader";
 
 export default async function NoteDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ noteId: string }>;
+  searchParams: Promise<{ block?: string }>;
 }) {
   const { noteId } = await params;
+  const { block } = await searchParams;
   const user = await requireUser();
   const [note, groups] = await Promise.all([
     prisma.note.findFirst({
@@ -37,6 +40,7 @@ export default async function NoteDetailPage({
       initialColor={note.color}
       initialGroupId={note.groupId}
       groups={groups}
+      anchorBlockId={block ?? null}
     />
   );
 }
