@@ -1,0 +1,8 @@
+---
+description: 版本控制与规则正文指针；禁止未经用户明确要求执行 commit/push
+alwaysApply: true
+---
+
+本仓库 **AI 助手的完整约定** 以仓库根目录 **`AGENTS.md`** 为准（含 Next.js 提示块、协作与版本控制、多工具规则来源）。
+
+**未经用户在对话中明确要求**，不得执行 `git commit`、`git push` 或等价写入 Git 历史的操作。允许只读类 Git 命令（如 `git status`、`git diff`、`git log`）。修改完成后由用户在本地审查并手动提交。
