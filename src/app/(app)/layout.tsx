@@ -6,6 +6,7 @@ import { ensureProfileFromUser } from "@/lib/auth/profile";
 import { signOut } from "@/actions/auth";
 import { createBlankNote } from "@/actions/notes";
 import { AppSyncBridge } from "@/components/app/app-sync-bridge";
+import { WebPushSubscribeButton } from "@/components/push/web-push-subscribe-button";
 
 export default async function AppLayout({
   children,
@@ -36,6 +37,7 @@ export default async function AppLayout({
           </Button>
         </form>
         <div className="min-w-2 flex-1" />
+        <WebPushSubscribeButton />
         <span className="hidden max-w-[200px] truncate text-xs text-muted-foreground md:inline">
           {user.email}
         </span>

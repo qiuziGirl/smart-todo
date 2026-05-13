@@ -27,7 +27,7 @@
 
 > **数据库**：若本地库在 M2 之前已创建，请再执行一次 `npm run db:push`，以创建 `todo_items(note_id, block_id)` 唯一约束（Prisma `@@unique`）。
 - [x] **M3** 同步与离线：Supabase Realtime 订阅 `notes` / `groups` / `todo_items` + 防抖 `router.refresh`；IndexedDB 离线保存队列与成功快照缓存；`syncVersion` 乐观锁与冲突提示；联网自动重放队列（`npm run db:realtime` 将表加入 publication，见下文）
-- [ ] **M4** 推送 (Web Push + FCM)
+- [x] **M4** 推送：Web Push（`public/sw.js` + VAPID）、订阅写入 `push_subscriptions`、`/api/cron/remind` 扫描 `TodoItem.remindAt` 并发送通知、[`vercel.json`](./vercel.json) 每分钟 Cron；**FCM 仍可选**（见需求文档 9）
 - [ ] **M5** PWA 与体验细节
 
 ## 快速开始
@@ -112,6 +112,23 @@ npm run dev
       SQL 文件：[`supabase/migrations/20260513140000_realtime_publication.sql`](./supabase/migrations/20260513140000_realtime_publication.sql)。若某表已在 publication 中，对应 `ALTER` 可能报错，可在 Dashboard 中确认表已勾选后忽略。  
     - 官方说明：[Realtime Postgres Changes](https://supabase.com/docs/guides/realtime/postgres-changes)。
 
+11. **Web Push 与定时提醒（M4）**  
+    - 生成 VAPID：`npx web-push generate-vapid-keys`，将公钥填入 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`、私钥填入 `VAPID_PRIVATE_KEY`，并设置 `VAPID_SUBJECT`（如 `mailto:你@邮箱`）。  
+    - 设置 **`CRON_SECRET`**（随机长串）；Vercel 部署后在项目环境变量中同步配置，Cron 请求会带 `Authorization: Bearer <CRON_SECRET>`。  
+    - 设置 **`NEXT_PUBLIC_APP_URL`**（如本地 `http://localhost:3005`、生产 `https://你的域名`），用于通知点击链接。未设置时生产环境会回退到 `VERCEL_URL`。  
+    - 本地手动触发扫描（需 dev server 已启动且 `.env.local` 已加载）：
+
+      ```bash
+      curl -s -H "Authorization: Bearer <你的CRON_SECRET>" http://localhost:3005/api/cron/remind
+      ```
+
+    - 登录后顶部 **「桌面提醒」** 可注册本机推送；**Chrome / Android PWA** 支持较好，Safari/iOS 能力因系统版本而异。  
+    - 官方：[Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)、[Web Push](https://developer.mozilla.org/docs/Web/API/Push_API)。
+    - **上线 / 自测备忘（可在 IDE 里勾选）**  
+      - [ ] 本地已用 `curl` + `.env.local` 中的 `CRON_SECRET` 成功调用 `/api/cron/remind`（返回 JSON 含 `ok`）  
+      - [ ] 若部署到 Vercel：项目 **Settings → Environment Variables** 已配置 `CRON_SECRET`、VAPID 相关变量、`NEXT_PUBLIC_APP_URL`（生产站点 HTTPS 根地址，用于通知点击链接）  
+      - [ ] 已在目标浏览器登录并点击 **「桌面提醒」** 完成订阅（`push_subscriptions` 表有本机记录后再测提醒）
+
 ## 常用脚本
 
 | 命令 | 说明 |
@@ -137,23 +154,28 @@ smart-todo/
 ├── 需求文档.md              # 产品需求文档（来源）
 ├── prisma/
 │   └── schema.prisma        # 数据模型
+├── vercel.json              # Vercel Cron（M4：每分钟 /api/cron/remind）
 ├── supabase/
 │   └── migrations/          # 手写 SQL（RLS 等），非 Supabase CLI 必须
 ├── public/
 │   ├── manifest.json        # PWA 清单
+│   ├── sw.js                # Service Worker（M4 Web Push）
 │   └── icons/               # 应用图标（M5 补）
 └── src/
     ├── app/                 # Next.js App Router
     │   ├── (auth)/login/    # 登录
     │   ├── (app)/notes/     # 便签
     │   ├── (app)/todos/     # 待办聚合
-    │   └── api/health/      # 健康检查
+    │   └── api/
+    │       ├── health/      # 健康检查
+    │       └── cron/remind/ # M4 定时扫描待办提醒（需 CRON_SECRET）
     ├── components/
     │   ├── app/               # 全局面桥（M3 Realtime / 离线 flush）
     │   ├── ui/                # shadcn/ui
     │   ├── editor/          # Tiptap 编辑器（M1）
     │   ├── notes/           # 便签业务组件
     │   ├── todos/           # 待办业务组件
+    │   ├── push/            # Web Push 订阅按钮（M4）
     │   └── layout/          # 布局组件
     ├── hooks/               # 自定义 React hooks
     ├── stores/              # Zustand stores
@@ -161,6 +183,7 @@ smart-todo/
     │   ├── supabase/        # Supabase 客户端封装
     │   ├── db/              # Prisma 客户端
     │   ├── offline/         # IndexedDB 离线队列与缓存（M3）
+    │   ├── push/            # VAPID 公钥解码等（M4）
     │   ├── todo/            # 待办与便签正文同步
     │   ├── utils.ts         # 工具函数
     │   └── constants.ts     # 常量
