@@ -46,13 +46,17 @@ cp .env.example .env.local
 
 ### 3. 启动开发服务器
 
+本项目 **`npm run dev` 固定使用 3005 端口**（避免与机器上其他 Next 项目抢默认 3000）。
+
 ```bash
 npm run dev
 ```
 
-访问 http://localhost:3000 。
+访问 http://localhost:3005 。
 
-健康检查：http://localhost:3000/api/health
+健康检查：http://localhost:3005/api/health
+
+若你临时用 `npx next dev` 等未带 `-p 3005` 的方式启动，实际端口可能变化，需在 **Supabase Redirect URLs** 中补对应端口的 `/auth/callback`（见下文）。
 
 ## 接入 Supabase（M1 之前完成）
 
@@ -60,7 +64,8 @@ npm run dev
 2. 进入 **Project Settings → API**，复制 URL / anon key / service_role key 到 `.env.local`
 3. 进入 **Project Settings → Database → Connection string**，复制 Pooler 与 Direct URL 到 `DATABASE_URL` / `DIRECT_URL`
 4. 在 **Authentication → Providers** 启用：
-   - **GitHub**：填入 GitHub OAuth App 的 Client ID / Secret
+   - **GitHub**：在 GitHub **OAuth Apps**（不是 GitHub Apps）中创建应用，**Authorization callback URL** 填 Supabase 控制台显示的  
+     `https://<project-ref>.supabase.co/auth/v1/callback`；**Homepage URL** 本地开发可填 `http://localhost:3005`（与 `npm run dev` 端口一致）。
    - **Email**：开启 Email/Password 模式
 5. 推送 schema 到数据库：
 
@@ -82,10 +87,15 @@ npm run dev
    npm run db:storage
    ```
 
-8. 在 **Authentication → URL Configuration** 中，将 **Redirect URLs** 加入你的站点回调，例如本地开发：
+8. 在 **Authentication → URL Configuration** 中，将 **Redirect URLs** 加入你的站点回调。
 
-   - `http://localhost:3000/auth/callback`
-   - 若 dev 使用其他端口，一并加入（如 `http://localhost:3001/auth/callback`）
+   **本仓库约定**：开发服务器固定 **3005**，至少添加：
+
+   - `http://localhost:3005/auth/callback`
+
+   **可选（推荐）**：在 Supabase 里把 `http://localhost:3000/auth/callback` 一路加到 `http://localhost:3005/auth/callback` 共 6 条。这样偶尔不用项目脚本、端口落在 3000–3005 时 OAuth 仍能回调成功，代价是多几条白名单，可接受。
+
+   生产环境再追加你的线上域名，例如 `https://你的域名/auth/callback`。
 
 9. 重启 dev server，打开 `/login` 联调 GitHub / 邮箱登录与便签。
 
@@ -93,7 +103,7 @@ npm run dev
 
 | 命令 | 说明 |
 | --- | --- |
-| `npm run dev` | 启动开发服务器（Turbopack） |
+| `npm run dev` | 启动开发服务器（Turbopack，**固定端口 3005**） |
 | `npm run build` | 生产构建 |
 | `npm run start` | 启动生产服务 |
 | `npm run lint` | ESLint 检查 |
