@@ -27,7 +27,7 @@
 
 > **数据库**：若本地库在 M2 之前已创建，请再执行一次 `npm run db:push`，以创建 `todo_items(note_id, block_id)` 唯一约束（Prisma `@@unique`）。
 - [x] **M3** 同步与离线：Supabase Realtime 订阅 `notes` / `groups` / `todo_items` + 防抖 `router.refresh`；IndexedDB 离线保存队列与成功快照缓存；`syncVersion` 乐观锁与冲突提示；联网自动重放队列（`npm run db:realtime` 将表加入 publication，见下文）
-- [x] **M4** 推送：Web Push（`public/sw.js` + VAPID）、订阅写入 `push_subscriptions`、`/api/cron/remind` 扫描 `TodoItem.remindAt` 并发送通知、[`vercel.json`](./vercel.json) 每分钟 Cron；**FCM 仍可选**（见需求文档 9）
+- [x] **M4** 推送：Web Push（`public/sw.js` + VAPID）、订阅写入 `push_subscriptions`、`/api/cron/remind` 扫描 `TodoItem.remindAt` 并发送通知；**生产环境由自建云服务器 crontab** 定时 `curl` 该接口（Vercel Hobby 不支持分钟级 [Vercel Cron](https://vercel.com/docs/cron-jobs/usage-and-pricing)）；**FCM 仍可选**（见需求文档 9）
 - [ ] **M5** PWA 与体验细节
 
 ## 快速开始
@@ -114,20 +114,30 @@ npm run dev
 
 11. **Web Push 与定时提醒（M4）**  
     - 生成 VAPID：`npx web-push generate-vapid-keys`，将公钥填入 `NEXT_PUBLIC_VAPID_PUBLIC_KEY`、私钥填入 `VAPID_PRIVATE_KEY`，并设置 `VAPID_SUBJECT`（如 `mailto:你@邮箱`）。  
-    - 设置 **`CRON_SECRET`**（随机长串）；Vercel 部署后在项目环境变量中同步配置，Cron 请求会带 `Authorization: Bearer <CRON_SECRET>`。  
+    - 设置 **`CRON_SECRET`**（随机长串）；Vercel 部署后在项目环境变量中同步配置；**任意**调用 `/api/cron/remind` 的调度方（本机、云服务器 crontab 等）须带 `Authorization: Bearer <CRON_SECRET>`。  
     - 设置 **`NEXT_PUBLIC_APP_URL`**（如本地 `http://localhost:3005`、生产 `https://你的域名`），用于通知点击链接。未设置时生产环境会回退到 `VERCEL_URL`。  
+    - **生产调度（自建云服务器 crontab）**：Vercel **Hobby** 仅允许 [每天最多一次 Cron](https://vercel.com/docs/cron-jobs/usage-and-pricing)，无法在仓库内配置「每分钟」的 `vercel.json` Cron。请在可访问公网的云服务器上配置 `crontab`（`crontab -e`），例如**每分钟**扫描（将 `YOUR_SECRET` 换成与 Vercel 环境变量 `CRON_SECRET` **完全一致**的值，将 URL 换成生产站点 HTTPS 根地址，勿带末尾 `/`）：
+
+      ```bash
+      * * * * * curl -fsS -m 60 -H "Authorization: Bearer YOUR_SECRET" "https://你的生产域名/api/cron/remind" >>"$HOME/logs/smart-todo-cron.log" 2>&1
+      ```
+
+      首次可先手动执行同一条 `curl`（去掉重定向）确认返回 JSON 含 `ok`。若需更高频或把调度留在 Vercel 内，可升级 **Pro** 再使用 [Vercel Cron](https://vercel.com/docs/cron-jobs)。  
     - 本地手动触发扫描（需 dev server 已启动且 `.env.local` 已加载）：
 
       ```bash
       curl -s -H "Authorization: Bearer <你的CRON_SECRET>" http://localhost:3005/api/cron/remind
       ```
 
+    - 一键自检（需 dev 或 `next start` 已监听对应端口，默认 `http://localhost:3005`）：`npm run verify:m4-cron`；测其他端口时先设环境变量 `CRON_TEST_URL`（如 `http://localhost:3006`）再执行。  
     - 登录后顶部 **「桌面提醒」** 可注册本机推送；**Chrome / Android PWA** 支持较好，Safari/iOS 能力因系统版本而异。  
-    - 官方：[Vercel Cron Jobs](https://vercel.com/docs/cron-jobs)、[Web Push](https://developer.mozilla.org/docs/Web/API/Push_API)。
+    - 参考：[Web Push](https://developer.mozilla.org/docs/Web/API/Push_API)。
     - **上线 / 自测备忘（可在 IDE 里勾选）**  
-      - [ ] 本地已用 `curl` + `.env.local` 中的 `CRON_SECRET` 成功调用 `/api/cron/remind`（返回 JSON 含 `ok`）  
+      - [ ] 本地已用 `curl` 或 `npm run verify:m4-cron` 成功调用 `/api/cron/remind`（返回 JSON 含 `ok`）  
       - [ ] 若部署到 Vercel：项目 **Settings → Environment Variables** 已配置 `CRON_SECRET`、VAPID 相关变量、`NEXT_PUBLIC_APP_URL`（生产站点 HTTPS 根地址，用于通知点击链接）  
-      - [ ] 已在目标浏览器登录并点击 **「桌面提醒」** 完成订阅（`push_subscriptions` 表有本机记录后再测提醒）
+      - [ ] 已在目标浏览器登录并点击 **「桌面提醒」** 完成订阅（`push_subscriptions` 表有本机记录后再测提醒）  
+      - [ ] 云服务器已配置 `crontab`（或等价定时任务）定时 `curl` 生产 `/api/cron/remind`，且 Bearer 与 Vercel 上 `CRON_SECRET` 一致（可先 `tail -f` 日志或临时去掉 `>>` 看输出）  
+      - [ ] （可选）本地生产冒烟：`npm run build` 后 `npx dotenv -e .env.local -- npx next start -p 3006`，另开终端设置 `CRON_TEST_URL=http://localhost:3006` 再执行 `npm run verify:m4-cron`
 
 ## 常用脚本
 
@@ -146,6 +156,7 @@ npm run dev
 | `npm run db:rls` | 执行 RLS + Policy SQL（可重复执行） |
 | `npm run db:storage` | 创建 `note-images` 桶及 Storage 策略（可重复执行） |
 | `npm run db:realtime` | 将 `notes` / `groups` / `todo_items` 加入 `supabase_realtime` publication（可重复执行，已存在表可能报错可忽略） |
+| `npm run verify:m4-cron` | M4：校验 Cron 相关环境变量并请求 `/api/cron/remind`（默认 `localhost:3005`，可用 `CRON_TEST_URL` 覆盖） |
 
 ## 目录结构
 
@@ -154,7 +165,6 @@ smart-todo/
 ├── 需求文档.md              # 产品需求文档（来源）
 ├── prisma/
 │   └── schema.prisma        # 数据模型
-├── vercel.json              # Vercel Cron（M4：每分钟 /api/cron/remind）
 ├── supabase/
 │   └── migrations/          # 手写 SQL（RLS 等），非 Supabase CLI 必须
 ├── public/
