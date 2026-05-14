@@ -4,6 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth/session";
 import { ensureProfileFromUser } from "@/lib/auth/profile";
 import { signOut } from "@/actions/auth";
+import { SignOutSubmit } from "@/components/auth/sign-out-submit";
 import { createBlankNote } from "@/actions/notes";
 import { AppSyncBridge } from "@/components/app/app-sync-bridge";
 import { WebPushSubscribeButton } from "@/components/push/web-push-subscribe-button";
@@ -42,9 +43,7 @@ export default async function AppLayout({
           {user.email}
         </span>
         <form action={signOut} className="shrink-0">
-          <Button type="submit" variant="outline" size="sm">
-            退出
-          </Button>
+          <SignOutSubmit />
         </form>
       </header>
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
