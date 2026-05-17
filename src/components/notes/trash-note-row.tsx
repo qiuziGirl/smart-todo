@@ -17,7 +17,7 @@ export function TrashNoteRow({ note }: { note: Row }) {
     <li className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{note.title?.trim() || "无标题"}</p>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-sm text-muted-foreground">
           {note.contentText.replace(/\s+/g, " ").trim().slice(0, 120) || "（无正文）"}
         </p>
       </div>

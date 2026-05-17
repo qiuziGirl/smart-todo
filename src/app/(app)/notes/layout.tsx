@@ -56,7 +56,7 @@ export default async function NotesLayout({
         <GroupsPanel groups={groups} />
       </aside>
       <aside className="flex max-h-44 w-full shrink-0 flex-col border-b md:max-h-none md:w-64 md:border-b-0 md:border-r">
-        <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">便签列表</div>
+        <div className="border-b px-3 py-2 text-sm font-medium text-muted-foreground">便签列表</div>
         <ScrollArea className="h-44 md:flex-1 md:min-h-0">
           <NoteList notes={listItems} />
         </ScrollArea>

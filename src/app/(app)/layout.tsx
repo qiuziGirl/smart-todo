@@ -20,26 +20,26 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <AppSyncBridge userId={user.id} />
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
-        <Link href="/notes" className="shrink-0 font-semibold">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4">
+        <Link href="/notes" className="shrink-0 text-base font-semibold">
           Smart Note
         </Link>
-        <nav className="flex shrink-0 items-center gap-0.5 text-sm">
-          <Link href="/notes" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+        <nav className="flex shrink-0 items-center gap-0.5 text-base">
+          <Link href="/notes" className={buttonVariants({ variant: "ghost", size: "default" })}>
             便签
           </Link>
-          <Link href="/todos" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          <Link href="/todos" className={buttonVariants({ variant: "ghost", size: "default" })}>
             待办
           </Link>
         </nav>
         <form action={createBlankNote} className="hidden shrink-0 sm:block">
-          <Button type="submit" size="sm" variant="secondary">
+          <Button type="submit" size="default" variant="secondary">
             新建便签
           </Button>
         </form>
         <div className="min-w-2 flex-1" />
         <WebPushSubscribeButton />
-        <span className="hidden max-w-[200px] truncate text-xs text-muted-foreground md:inline">
+        <span className="hidden max-w-[200px] truncate text-base text-muted-foreground md:inline">
           {user.email}
         </span>
         <form action={signOut} className="shrink-0">

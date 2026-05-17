@@ -91,7 +91,7 @@ export function TodosView({ items }: { items: TodoListRow[] }) {
             onClick={() => setTab(t.id)}
           >
             {t.label}
-            <span className="ml-1 text-xs text-muted-foreground">({byBucket[t.id].length})</span>
+            <span className="ml-1 text-sm text-muted-foreground">({byBucket[t.id].length})</span>
           </Button>
         ))}
       </div>
@@ -120,7 +120,7 @@ export function TodosView({ items }: { items: TodoListRow[] }) {
               />
               <div className="min-w-0 flex-1">
                 <p className="font-medium leading-snug">{row.text}</p>
-                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
                   {row.noteTitle?.trim() || "无标题便签"}
                   {row.dueAt && (
                     <span className="ml-2">

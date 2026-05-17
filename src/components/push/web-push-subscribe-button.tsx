@@ -100,7 +100,7 @@ export function WebPushSubscribeButton() {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      size="default"
       className="hidden gap-1 sm:inline-flex"
       disabled={pending || !vapidPublic}
       title={!vapidPublic ? "请在环境变量中配置 VAPID 公钥" : undefined}

@@ -12,7 +12,7 @@ export function SignOutSubmit() {
     <Button
       type="submit"
       variant="outline"
-      size="sm"
+      size="default"
       disabled={pending}
       aria-busy={pending}
       className={pending ? "gap-1.5" : undefined}

@@ -443,11 +443,11 @@ export function NoteEditor({
         {editor.isActive("taskItem") && (
           <>
             <Separator orientation="vertical" className="mx-0.5 h-6" />
-            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+            <label className="flex items-center gap-1 text-sm text-muted-foreground">
               到期
               <input
                 type="date"
-                className="h-7 max-w-[132px] rounded border bg-background px-1 text-xs"
+                className="h-7 max-w-[132px] rounded border bg-background px-1 text-sm"
                 value={(() => {
                   const v = editor.getAttributes("taskItem").dueAt as string | undefined;
                   return v ? v.slice(0, 10) : "";
@@ -464,11 +464,11 @@ export function NoteEditor({
                 }}
               />
             </label>
-            <label className="flex max-w-[200px] items-center gap-1 text-xs text-muted-foreground sm:max-w-none">
+            <label className="flex max-w-[200px] items-center gap-1 text-sm text-muted-foreground sm:max-w-none">
               提醒
               <input
                 type="datetime-local"
-                className="h-7 max-w-[165px] rounded border bg-background px-1 text-xs"
+                className="h-7 max-w-[165px] rounded border bg-background px-1 text-sm"
                 value={formatForDatetimeLocal(editor.getAttributes("taskItem").remindAt as string | undefined)}
                 onChange={(e) => {
                   const v = e.target.value;
@@ -506,7 +506,7 @@ export function NoteEditor({
           <Redo2 className="size-4" />
         </Button>
         <div className="flex-1" />
-        <span className="hidden text-xs text-muted-foreground sm:inline">
+        <span className="hidden text-sm text-muted-foreground sm:inline">
           {saveState === "saving" && "保存中…"}
           {saveState === "saved" && "已保存"}
           {saveState === "error" && "保存失败"}
@@ -523,7 +523,7 @@ export function NoteEditor({
           <Pin className="size-4" />
         </Button>
         <select
-          className="h-8 max-w-[100px] rounded-md border bg-background px-1 text-xs sm:max-w-[120px]"
+          className="h-8 max-w-[100px] rounded-md border bg-background px-1 text-sm sm:max-w-[120px]"
           value={color ?? ""}
           disabled={pending}
           onChange={(e) => void onColorChange(e.target.value)}
@@ -537,7 +537,7 @@ export function NoteEditor({
           ))}
         </select>
         <select
-          className="h-8 max-w-[120px] rounded-md border bg-background px-1 text-xs"
+          className="h-8 max-w-[120px] rounded-md border bg-background px-1 text-sm"
           value={groupId ?? ""}
           disabled={pending}
           onChange={(e) => void onGroupChange(e.target.value)}

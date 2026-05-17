@@ -81,7 +81,7 @@ export default async function Home() {
           </Link>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           {user ? "你已登录，可直接打开便签。" : "登录后即可创建分组与富文本便签。"}
         </p>
       </div>

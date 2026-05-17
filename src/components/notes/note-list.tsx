@@ -41,7 +41,7 @@ export function NoteList({ notes }: NoteListProps) {
                   {n.title?.trim() || "无标题"}
                 </span>
                 {n.preview ? (
-                  <span className="truncate text-xs text-muted-foreground">{n.preview}</span>
+                  <span className="truncate text-sm text-muted-foreground">{n.preview}</span>
                 ) : null}
               </span>
             </Link>
