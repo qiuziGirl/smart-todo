@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { AlertTriangle, HelpCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -34,23 +36,47 @@ export function ConfirmDialog({
   pending = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  const isDestructive = variant === "destructive";
+  const Icon = isDestructive ? AlertTriangle : HelpCircle;
+
   async function handleConfirm() {
     await onConfirm();
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description ? (
-            <DialogDescription>{description}</DialogDescription>
-          ) : null}
+      <DialogContent
+        showCloseButton={false}
+        className="gap-0 p-0 sm:max-w-md"
+      >
+        <DialogHeader className="flex-row items-start gap-3 p-5 pb-4">
+          <span
+            className={cn(
+              "mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full",
+              isDestructive
+                ? "bg-destructive/10 text-destructive"
+                : "bg-muted text-muted-foreground"
+            )}
+            aria-hidden="true"
+          >
+            <Icon className="size-5" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <DialogTitle className="text-base font-semibold leading-snug">
+              {title}
+            </DialogTitle>
+            {description ? (
+              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                {description}
+              </DialogDescription>
+            ) : null}
+          </div>
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="m-0 gap-2 rounded-b-xl border-t bg-muted/40 px-5 py-3">
           <Button
             type="button"
             variant="outline"
+            size="lg"
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
@@ -58,7 +84,8 @@ export function ConfirmDialog({
           </Button>
           <Button
             type="button"
-            variant={variant === "destructive" ? "destructive" : "default"}
+            variant={isDestructive ? "destructive" : "default"}
+            size="lg"
             disabled={pending}
             onClick={() => void handleConfirm()}
           >
