@@ -10,7 +10,7 @@ export function GroupsPanel({ groups }: { groups: GroupListItem[] }) {
       <p className="px-1 text-xs font-medium text-muted-foreground">分组</p>
       <form action={createGroupFromForm} className="flex gap-1">
         <Input name="name" placeholder="新分组" className="h-8 text-sm" required maxLength={64} />
-        <Button type="submit" size="sm" variant="secondary">
+        <Button type="submit" size="sm" variant="outline">
           添加
         </Button>
       </form>
