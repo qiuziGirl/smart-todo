@@ -40,6 +40,8 @@ import type { GroupListItem } from "@/types/note";
 import { CustomTaskItem } from "@/lib/tiptap/custom-task-item";
 import { enqueueNoteSave } from "@/lib/offline/note-outbox";
 import { writeNoteCache } from "@/lib/offline/note-cache";
+import { LinkDialog } from "@/components/editor/link-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 const DEBOUNCE_MS = 650;
 
@@ -104,6 +106,9 @@ export function NoteEditor({
   const warnedRemoteRev = useRef<number | null>(null);
   const prevNoteIdRef = useRef(noteId);
   const flushSaveRef = useRef<(json: unknown) => Promise<void>>(async () => {});
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkInitial, setLinkInitial] = useState<string | undefined>(undefined);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const extensions = useMemo(
     () => [
@@ -327,13 +332,8 @@ export function NoteEditor({
   function onSetLink() {
     if (!editor) return;
     const prev = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("链接地址", prev ?? "https://");
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setLinkInitial(prev);
+    setLinkDialogOpen(true);
   }
 
   async function onTogglePin() {
@@ -362,8 +362,12 @@ export function NoteEditor({
     });
   }
 
-  async function onDelete() {
-    if (!confirm("将便签移入回收站？")) return;
+  function onDelete() {
+    setConfirmDeleteOpen(true);
+  }
+
+  function onConfirmDelete() {
+    setConfirmDeleteOpen(false);
     start(async () => {
       await softDeleteNote(noteId);
     });
@@ -555,6 +559,27 @@ export function NoteEditor({
         </Button>
       </div>
       <EditorContent editor={editor} className="flex-1 overflow-auto" />
+      <LinkDialog
+        open={linkDialogOpen}
+        onOpenChange={setLinkDialogOpen}
+        initialUrl={linkInitial}
+        onSubmit={(href) => {
+          editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+        }}
+        onRemove={() => {
+          editor.chain().focus().extendMarkRange("link").unsetLink().run();
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="将便签移入回收站？"
+        description="你可以稍后在回收站还原。"
+        confirmText="移入回收站"
+        variant="destructive"
+        pending={pending}
+        onConfirm={onConfirmDelete}
+      />
     </div>
   );
 }

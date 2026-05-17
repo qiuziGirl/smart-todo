@@ -12,25 +12,28 @@ import { urlBase64ToUint8Array } from "@/lib/push/url-base64";
  */
 export function WebPushSubscribeButton() {
   const [pending, start] = useTransition();
+  const [supported, setSupported] = useState<boolean | null>(null);
   const [subscribed, setSubscribed] = useState<boolean | null>(null);
 
   const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   const refreshSubscriptionState = useCallback(async () => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setSubscribed(false);
-      return;
-    }
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = await reg?.pushManager.getSubscription();
     setSubscribed(!!sub);
   }, []);
 
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      void refreshSubscriptionState();
-    }, 0);
-    return () => window.clearTimeout(t);
+    if (typeof window === "undefined") return;
+    const ok = "serviceWorker" in navigator && "PushManager" in window;
+    // 浏览器能力检测必须在挂载后读取 navigator/window，无法用 useSyncExternalStore 表达。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSupported(ok);
+    if (!ok) {
+      setSubscribed(false);
+      return;
+    }
+    void refreshSubscriptionState();
   }, [refreshSubscriptionState]);
 
   const onSubscribe = useCallback(() => {
@@ -92,37 +95,32 @@ export function WebPushSubscribeButton() {
     });
   }, []);
 
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+  if (supported === null || supported === false) {
     return null;
   }
+
+  const isOn = subscribed === true;
+  const label = isOn ? "关闭提醒" : "桌面提醒";
 
   return (
     <Button
       type="button"
       variant="ghost"
-      size="default"
-      className="hidden gap-1 sm:inline-flex"
+      size="icon-sm"
+      className="sm:size-auto sm:h-8 sm:gap-1 sm:px-2.5"
       disabled={pending || !vapidPublic}
-      title={!vapidPublic ? "请在环境变量中配置 VAPID 公钥" : undefined}
+      title={!vapidPublic ? "请在环境变量中配置 VAPID 公钥" : label}
+      aria-label={label}
       onClick={() => {
-        if (subscribed) {
+        if (isOn) {
           void onUnsubscribe();
         } else {
           void onSubscribe();
         }
       }}
     >
-      {subscribed === true ? (
-        <>
-          <BellOff className="size-4" />
-          关闭提醒
-        </>
-      ) : (
-        <>
-          <Bell className="size-4" />
-          桌面提醒
-        </>
-      )}
+      {isOn ? <BellOff className="size-4" /> : <Bell className="size-4" />}
+      <span className="hidden sm:inline">{label}</span>
     </Button>
   );
 }

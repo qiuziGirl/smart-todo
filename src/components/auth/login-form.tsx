@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { GitBranch } from "lucide-react";
 
 type LoginFormProps = {
@@ -24,43 +25,71 @@ type LoginFormProps = {
   initialError?: string | null;
 };
 
+type Mode = "signin" | "signup";
+
 export function LoginForm({ appUrl, initialError }: LoginFormProps) {
   const router = useRouter();
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(initialError ?? null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
+  const [info, setInfo] = useState<string | null>(null);
   const supabase = createClient();
+
+  const signinTabRef = useRef<HTMLButtonElement>(null);
+  const signupTabRef = useRef<HTMLButtonElement>(null);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setInfo(null);
+    const target = next === "signin" ? signinTabRef.current : signupTabRef.current;
+    target?.focus();
+  }
+
+  function onTablistKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      switchMode(mode === "signin" ? "signup" : "signin");
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      switchMode("signin");
+    } else if (e.key === "End") {
+      e.preventDefault();
+      switchMode("signup");
+    }
+  }
 
   async function onEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          setMessage(error.message);
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) {
+          setError(err.message);
           return;
         }
         router.push("/notes");
         router.refresh();
         return;
       }
-      const { error } = await supabase.auth.signUp({
+      const { error: err } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${appUrl}/auth/callback?next=/notes`,
         },
       });
-      if (error) {
-        setMessage(error.message);
+      if (err) {
+        setError(err.message);
         return;
       }
-      setMessage("若项目开启了邮箱验证，请查收邮件后再登录。");
+      setInfo("若项目开启了邮箱验证，请查收邮件后再登录。");
     } finally {
       setLoading(false);
     }
@@ -68,18 +97,21 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
 
   async function onGitHub() {
     setLoading(true);
-    setMessage(null);
-    const { error } = await supabase.auth.signInWithOAuth({
+    setError(null);
+    setInfo(null);
+    const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
         redirectTo: `${appUrl}/auth/callback?next=/notes`,
       },
     });
-    if (error) {
-      setMessage(error.message);
+    if (err) {
+      setError(err.message);
       setLoading(false);
     }
   }
+
+  const signinSelected = mode === "signin";
 
   return (
     <Card className="w-full max-w-md">
@@ -88,8 +120,23 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
         <CardDescription>GitHub 或邮箱密码；首次使用请先注册。</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {message ? (
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{message}</p>
+        {error ? (
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive whitespace-pre-wrap"
+          >
+            {error}
+          </p>
+        ) : null}
+        {info ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground whitespace-pre-wrap"
+          >
+            {info}
+          </p>
         ) : null}
         <Button
           type="button"
@@ -107,24 +154,56 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
             或
           </span>
         </div>
-        <div className="flex gap-2 text-sm">
+        <div
+          role="tablist"
+          aria-label="登录方式"
+          className="flex gap-2 text-sm"
+          onKeyDown={onTablistKeyDown}
+        >
           <button
+            ref={signinTabRef}
             type="button"
-            className={mode === "signin" ? "font-medium underline" : "text-muted-foreground"}
-            onClick={() => setMode("signin")}
+            role="tab"
+            id="tab-signin"
+            aria-selected={signinSelected}
+            aria-controls="login-panel"
+            tabIndex={signinSelected ? 0 : -1}
+            className={cn(
+              "rounded px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              signinSelected ? "font-medium underline" : "text-muted-foreground"
+            )}
+            onClick={() => switchMode("signin")}
           >
             登录
           </button>
-          <span className="text-muted-foreground">/</span>
+          <span aria-hidden="true" className="text-muted-foreground">
+            /
+          </span>
           <button
+            ref={signupTabRef}
             type="button"
-            className={mode === "signup" ? "font-medium underline" : "text-muted-foreground"}
-            onClick={() => setMode("signup")}
+            role="tab"
+            id="tab-signup"
+            aria-selected={!signinSelected}
+            aria-controls="login-panel"
+            tabIndex={!signinSelected ? 0 : -1}
+            className={cn(
+              "rounded px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              !signinSelected ? "font-medium underline" : "text-muted-foreground"
+            )}
+            onClick={() => switchMode("signup")}
           >
             注册
           </button>
         </div>
-        <form onSubmit={onEmailSubmit} className="space-y-3">
+        <form
+          id="login-panel"
+          role="tabpanel"
+          aria-labelledby={signinSelected ? "tab-signin" : "tab-signup"}
+          aria-busy={loading}
+          onSubmit={onEmailSubmit}
+          className="space-y-3"
+        >
           <div className="space-y-2">
             <Label htmlFor="email">邮箱</Label>
             <Input
@@ -141,7 +220,7 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
             <Input
               id="password"
               type="password"
-              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              autoComplete={signinSelected ? "current-password" : "new-password"}
               required
               minLength={6}
               value={password}
@@ -149,7 +228,7 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "处理中…" : mode === "signin" ? "邮箱登录" : "注册并发送验证邮件"}
+            {loading ? "处理中…" : signinSelected ? "邮箱登录" : "注册并发送验证邮件"}
           </Button>
         </form>
       </CardContent>
