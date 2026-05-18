@@ -99,13 +99,16 @@ export function NoteEditor({
   const [pinned, setPinned] = useState(initialPinned);
   const [color, setColor] = useState<string | null>(initialColor);
   const [groupId, setGroupId] = useState<string | null>(initialGroupId);
-  const [lastSavedSyncVersion, setLastSavedSyncVersion] = useState(serverSyncVersion);
+  const [, setLastSavedSyncVersion] = useState(serverSyncVersion);
+  const lastSavedSyncVersionRef = useRef(serverSyncVersion);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const dirtySinceSaveRef = useRef(false);
   const warnedRemoteRev = useRef<number | null>(null);
   const prevNoteIdRef = useRef(noteId);
   const flushSaveRef = useRef<(json: unknown) => Promise<void>>(async () => {});
+  const inFlightRef = useRef(false);
+  const pendingJsonRef = useRef<unknown>(null);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkInitial, setLinkInitial] = useState<string | undefined>(undefined);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -137,55 +140,80 @@ export function NoteEditor({
 
   const flushSave = useCallback(
     async (json: unknown) => {
+      // Fix 2: serialize saves — only one in-flight at a time
+      if (inFlightRef.current) {
+        pendingJsonRef.current = json;
+        return;
+      }
+      inFlightRef.current = true;
+
+      // Fix 3: snapshot dirty state before await so new edits during the
+      // request will re-set the flag without being overwritten
+      dirtySinceSaveRef.current = false;
+
       setSaveState("saving");
-      let res: Awaited<ReturnType<typeof saveNoteFromEditor>>;
       try {
-        res = await saveNoteFromEditor(noteId, json, {
-          expectedSyncVersion: lastSavedSyncVersion,
-        });
-      } catch (e) {
-        if (isLikelyNetworkError(e)) {
-          await enqueueNoteSave(noteId, json);
+        let res: Awaited<ReturnType<typeof saveNoteFromEditor>>;
+        try {
+          // Fix 1: use ref (synchronous) instead of stale closure state
+          res = await saveNoteFromEditor(noteId, json, {
+            expectedSyncVersion: lastSavedSyncVersionRef.current,
+          });
+        } catch (e) {
+          if (isLikelyNetworkError(e)) {
+            await enqueueNoteSave(noteId, json);
+            setSaveState("error");
+            toast.warning("网络不可用，内容已加入本地队列，联网后将自动上传");
+            return;
+          }
           setSaveState("error");
-          toast.warning("网络不可用，内容已加入本地队列，联网后将自动上传");
+          toast.error("保存失败");
           return;
         }
-        setSaveState("error");
-        toast.error("保存失败");
-        return;
-      }
-      if ("conflict" in res && res.conflict) {
-        setSaveState("error");
-        toast.error("保存冲突：便签已在其他端更新", {
-          action: {
-            label: "重新加载",
-            onClick: () => router.refresh(),
-          },
-        });
-        return;
-      }
-      if ("error" in res && res.error) {
-        setSaveState("error");
-        toast.error(res.error);
-        return;
-      }
-      if ("ok" in res && res.ok) {
-        setLastSavedSyncVersion(res.syncVersion);
-        dirtySinceSaveRef.current = false;
-        try {
-          await writeNoteCache(noteId, {
-            contentJson: json,
-            syncVersion: res.syncVersion,
-            savedAt: Date.now(),
+        if ("conflict" in res && res.conflict) {
+          setSaveState("error");
+          toast.error("保存冲突：便签已在其他端更新", {
+            action: {
+              label: "重新加载",
+              onClick: () => router.refresh(),
+            },
           });
-        } catch {
-          /* ignore cache write errors */
+          return;
         }
-        setSaveState("saved");
-        router.refresh();
+        if ("error" in res && res.error) {
+          setSaveState("error");
+          toast.error(res.error);
+          return;
+        }
+        if ("ok" in res && res.ok) {
+          // Fix 1 & 4: update both state and ref synchronously
+          lastSavedSyncVersionRef.current = res.syncVersion;
+          setLastSavedSyncVersion(res.syncVersion);
+          // Fix 3: do NOT reset dirtySinceSaveRef here — it preserves any
+          // new edits that arrived during the await
+          try {
+            await writeNoteCache(noteId, {
+              contentJson: json,
+              syncVersion: res.syncVersion,
+              savedAt: Date.now(),
+            });
+          } catch {
+            /* ignore cache write errors */
+          }
+          setSaveState("saved");
+          router.refresh();
+        }
+      } finally {
+        // Fix 2: drain pending save if user edited during in-flight request
+        inFlightRef.current = false;
+        const pending = pendingJsonRef.current;
+        if (pending !== null) {
+          pendingJsonRef.current = null;
+          void flushSaveRef.current(pending);
+        }
       }
     },
-    [noteId, router, lastSavedSyncVersion]
+    [noteId, router]
   );
 
   useEffect(() => {
@@ -227,6 +255,7 @@ export function NoteEditor({
   useEffect(() => {
     if (prevNoteIdRef.current !== noteId) {
       prevNoteIdRef.current = noteId;
+      lastSavedSyncVersionRef.current = serverSyncVersion;
       setLastSavedSyncVersion(serverSyncVersion);
       dirtySinceSaveRef.current = false;
       warnedRemoteRev.current = null;
@@ -234,7 +263,8 @@ export function NoteEditor({
   }, [noteId, serverSyncVersion]);
 
   useEffect(() => {
-    if (serverSyncVersion <= lastSavedSyncVersion) {
+    // Fix 4: use ref for comparison to suppress self-echoes from our own saves
+    if (serverSyncVersion <= lastSavedSyncVersionRef.current) {
       return;
     }
     if (!editor || editor.isDestroyed) {
@@ -242,6 +272,7 @@ export function NoteEditor({
     }
     if (!dirtySinceSaveRef.current) {
       editor.commands.setContent(initialContent, { emitUpdate: false });
+      lastSavedSyncVersionRef.current = serverSyncVersion;
       setLastSavedSyncVersion(serverSyncVersion);
       warnedRemoteRev.current = null;
       return;
@@ -253,6 +284,7 @@ export function NoteEditor({
           label: "载入最新",
           onClick: () => {
             editor.commands.setContent(initialContent, { emitUpdate: false });
+            lastSavedSyncVersionRef.current = serverSyncVersion;
             setLastSavedSyncVersion(serverSyncVersion);
             dirtySinceSaveRef.current = false;
             router.refresh();
@@ -260,7 +292,7 @@ export function NoteEditor({
         },
       });
     }
-  }, [serverSyncVersion, lastSavedSyncVersion, initialContent, editor, router]);
+  }, [serverSyncVersion, initialContent, editor, router]);
 
   useEffect(() => {
     if (!editor) return;
