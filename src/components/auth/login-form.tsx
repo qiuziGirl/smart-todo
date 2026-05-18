@@ -21,13 +21,12 @@ import { cn } from "@/lib/utils";
 import { GitBranch } from "lucide-react";
 
 type LoginFormProps = {
-  appUrl: string;
   initialError?: string | null;
 };
 
 type Mode = "signin" | "signup";
 
-export function LoginForm({ appUrl, initialError }: LoginFormProps) {
+export function LoginForm({ initialError }: LoginFormProps) {
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -82,7 +81,7 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
         email,
         password,
         options: {
-          emailRedirectTo: `${appUrl}/auth/callback?next=/notes`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/notes`,
         },
       });
       if (err) {
@@ -102,7 +101,7 @@ export function LoginForm({ appUrl, initialError }: LoginFormProps) {
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${appUrl}/auth/callback?next=/notes`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/notes`,
       },
     });
     if (err) {
