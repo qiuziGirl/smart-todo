@@ -81,7 +81,7 @@ export function LoginForm({ initialError }: LoginFormProps) {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/notes`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (err) {
@@ -101,7 +101,7 @@ export function LoginForm({ initialError }: LoginFormProps) {
     const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "github",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/notes`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     if (err) {
