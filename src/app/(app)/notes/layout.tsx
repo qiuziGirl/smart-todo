@@ -25,7 +25,14 @@ export default async function NotesLayout({
     prisma.note.findMany({
       where: { userId: user.id, isDeleted: false },
       orderBy: [{ isPinned: "desc" }, { updatedAt: "desc" }],
-      select: { id: true, title: true, updatedAt: true, isPinned: true, contentText: true },
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+        isPinned: true,
+        groupId: true,
+        contentText: true,
+      },
     }),
   ]);
 
@@ -34,6 +41,7 @@ export default async function NotesLayout({
     title: n.title,
     updatedAt: n.updatedAt.toISOString(),
     isPinned: n.isPinned,
+    groupId: n.groupId,
     preview: n.contentText.replace(/\s+/g, " ").trim().slice(0, 100),
   }));
 

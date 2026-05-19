@@ -3,6 +3,7 @@ export type NoteListItem = {
   title: string | null;
   updatedAt: string;
   isPinned: boolean;
+  groupId: string | null;
   preview: string;
 };
 

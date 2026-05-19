@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { NoteListItem } from "@/types/note";
@@ -13,22 +13,36 @@ type NoteListProps = {
 
 export function NoteList({ notes }: NoteListProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const activeId = pathname.startsWith("/notes/") ? pathname.split("/")[2] : null;
+  const activeGroupId = searchParams.get("groupId");
+  const filteredNotes = activeGroupId
+    ? notes.filter((note) => note.groupId === activeGroupId)
+    : notes;
 
-  if (notes.length === 0) {
+  function noteHref(noteId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("block");
+    const query = params.toString();
+    return `/notes/${noteId}${query ? `?${query}` : ""}`;
+  }
+
+  if (filteredNotes.length === 0) {
     return (
-      <p className="p-3 text-sm text-muted-foreground">暂无便签，点击右侧新建。</p>
+      <p className="p-3 text-sm text-muted-foreground">
+        {activeGroupId ? "该分组暂无便签。" : "暂无便签，点击右侧新建。"}
+      </p>
     );
   }
 
   return (
     <ul className="divide-y">
-      {notes.map((n) => {
+      {filteredNotes.map((n) => {
         const active = activeId === n.id;
         return (
           <li key={n.id}>
             <Link
-              href={`/notes/${n.id}`}
+              href={noteHref(n.id)}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
                 "h-auto w-full justify-start rounded-none px-3 py-2.5 text-left font-normal",
