@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { GitBranch } from "lucide-react";
+import { GitBranch, ArrowLeft } from "lucide-react";
 
 type LoginFormProps = {
   initialError?: string | null;
@@ -233,6 +233,7 @@ export function LoginForm({ initialError }: LoginFormProps) {
       </CardContent>
       <CardFooter>
         <Link href="/" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+          <ArrowLeft className="size-4" />
           返回首页
         </Link>
       </CardFooter>
