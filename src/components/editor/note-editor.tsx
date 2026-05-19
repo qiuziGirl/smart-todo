@@ -42,6 +42,7 @@ import { enqueueNoteSave } from "@/lib/offline/note-outbox";
 import { writeNoteCache } from "@/lib/offline/note-cache";
 import { LinkDialog } from "@/components/editor/link-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { cn } from "@/lib/utils";
 
 const DEBOUNCE_MS = 650;
 
@@ -550,13 +551,21 @@ export function NoteEditor({
         </span>
         <Button
           type="button"
-          variant={pinned ? "secondary" : "ghost"}
+          variant="ghost"
           size="icon-sm"
+          className={cn(
+            "relative",
+            pinned &&
+              "bg-muted text-foreground ring-1 ring-border hover:bg-muted hover:text-foreground"
+          )}
           disabled={pending}
           onClick={() => void onTogglePin()}
-          aria-label="置顶"
+          aria-label={pinned ? "取消置顶" : "置顶"}
         >
-          <Pin className="size-4" />
+          <span className="pointer-events-none absolute left-1/2 top-full z-100 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-sm transition-opacity group-hover/button:opacity-100 group-focus-visible/button:opacity-100">
+            {pinned ? "取消置顶" : "置顶"}
+          </span>
+          <Pin className={cn("size-4 transition-transform", pinned && "-rotate-45 fill-current")} />
         </Button>
         <select
           className="h-8 max-w-[100px] rounded-md border bg-background px-1 text-sm sm:max-w-[120px]"
