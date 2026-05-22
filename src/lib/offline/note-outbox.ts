@@ -47,10 +47,18 @@ type SaveAttemptResult =
 
 /** 顺序重放队列（默认不校验 expectedSyncVersion，离线恢复以最后一次本地内容为准） */
 export async function drainOutbox(
-  saver: (noteId: string, docJson: unknown) => Promise<SaveAttemptResult>
-): Promise<{ flushed: number; failed: number }> {
+  saver: (noteId: string, docJson: unknown) => Promise<SaveAttemptResult>,
+  options?: {
+    /**
+     * 返回 true 时，该条 outbox 视为已过期并直接丢弃，不参与重放。
+     * 典型场景：本地缓存已存在更晚、更高版本的保存结果。
+     */
+    shouldDiscard?: (entry: OutboxEntry) => Promise<boolean> | boolean;
+  }
+): Promise<{ flushed: number; failed: number; discarded: number }> {
   let flushed = 0;
   let failed = 0;
+  let discarded = 0;
 
   while (true) {
     const list = await readAll();
@@ -58,6 +66,16 @@ export async function drainOutbox(
       break;
     }
     const entry = list[0];
+    try {
+      const shouldDiscard = await options?.shouldDiscard?.(entry);
+      if (shouldDiscard) {
+        await removeOutboxEntry(entry.noteId);
+        discarded += 1;
+        continue;
+      }
+    } catch {
+      // 保护性降级：discard 判定失败时，按常规重放流程继续处理。
+    }
     try {
       const res = await saver(entry.noteId, entry.docJson);
       if (res && "ok" in res && res.ok) {
@@ -82,5 +100,5 @@ export async function drainOutbox(
     }
   }
 
-  return { flushed, failed };
+  return { flushed, failed, discarded };
 }

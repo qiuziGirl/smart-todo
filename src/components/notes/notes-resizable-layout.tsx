@@ -25,6 +25,13 @@ interface StoredState extends ExpandedWidths {
 
 function readStoredState(): StoredState | null {
   if (typeof window === "undefined") return null;
+  const clearCorrupted = () => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
@@ -51,8 +58,9 @@ function readStoredState(): StoredState | null {
       }
       return state;
     }
+    clearCorrupted();
   } catch {
-    // ignore corrupted storage
+    clearCorrupted();
   }
   return null;
 }
@@ -74,6 +82,7 @@ export function NotesResizableLayout({
   const groupsPanelRef = usePanelRef();
   const listPanelRef = usePanelRef();
   const saveTimerRef = useRef<number | null>(null);
+  const restoringLayoutRef = useRef(false);
   const lastExpandedWidthsRef = useRef<ExpandedWidths>({
     groups: 15,
     list: 20,
@@ -82,9 +91,19 @@ export function NotesResizableLayout({
   const [groupsCollapsed, setGroupsCollapsed] = useState(false);
   const [listCollapsed, setListCollapsed] = useState(false);
   const [mobileGroupsOpen, setMobileGroupsOpen] = useState(true);
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)");
+    const syncViewport = () => setIsDesktop(query.matches);
+    syncViewport();
+    query.addEventListener("change", syncViewport);
+    return () => query.removeEventListener("change", syncViewport);
+  }, []);
 
   // Restore saved layout + collapsed state after mount (client-only)
   useEffect(() => {
+    if (!isDesktop) return;
     const state = readStoredState();
     if (!state) return;
     lastExpandedWidthsRef.current = {
@@ -92,6 +111,7 @@ export function NotesResizableLayout({
       list: state.list,
       editor: state.editor,
     };
+    restoringLayoutRef.current = true;
     const layout: Layout = {
       groups: state.groups,
       list: state.list,
@@ -108,8 +128,14 @@ export function NotesResizableLayout({
         listPanelRef.current?.collapse();
         setListCollapsed(true);
       }
+      requestAnimationFrame(() => {
+        restoringLayoutRef.current = false;
+      });
     });
-  }, [groupRef, groupsPanelRef, listPanelRef]);
+    return () => {
+      restoringLayoutRef.current = false;
+    };
+  }, [groupRef, groupsPanelRef, isDesktop, listPanelRef]);
 
   const persistState = useCallback(
     (widths: ExpandedWidths, collapsed: { groups: boolean; list: boolean }) => {
@@ -131,16 +157,22 @@ export function NotesResizableLayout({
 
   const handleLayoutChanged = useCallback(
     (layout: Layout) => {
+      if (restoringLayoutRef.current) {
+        return;
+      }
+      const groupsCollapsedNow = groupsPanelRef.current?.isCollapsed() ?? false;
+      const listCollapsedNow = listPanelRef.current?.isCollapsed() ?? false;
       // Only update expanded widths when the panel is not collapsed (skip near-zero values)
       if ((layout.groups ?? 0) > 1)
         lastExpandedWidthsRef.current.groups = layout.groups;
       if ((layout.list ?? 0) > 1)
         lastExpandedWidthsRef.current.list = layout.list;
-      if ((layout.editor ?? 0) > 1)
+      // editor 宽度在任一侧栏折叠时是补偿值，不作为 expanded 基线记录。
+      if (!groupsCollapsedNow && !listCollapsedNow && (layout.editor ?? 0) > 1)
         lastExpandedWidthsRef.current.editor = layout.editor;
       persistState(lastExpandedWidthsRef.current, {
-        groups: groupsPanelRef.current?.isCollapsed() ?? false,
-        list: listPanelRef.current?.isCollapsed() ?? false,
+        groups: groupsCollapsedNow,
+        list: listCollapsedNow,
       });
     },
     [groupsPanelRef, listPanelRef, persistState],
@@ -186,12 +218,15 @@ export function NotesResizableLayout({
     }
   }, [groupsPanelRef, listPanelRef, persistState]);
 
+  if (isDesktop === null) {
+    return <div className="flex min-h-0 flex-1 flex-col" />;
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Mobile: vertical stacked layout */}
-      <div className="flex flex-col md:hidden">
+      {!isDesktop ? (
+        <div className="flex flex-col">
         {mobileAction}
-        {/* Mobile groups section with toggle */}
         <div className="border-b">
           <button
             type="button"
@@ -216,16 +251,9 @@ export function NotesResizableLayout({
           {middlePanel}
         </aside>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
-      </div>
-
-      {/*
-        Desktop: resizable horizontal panels.
-        NOTE: react-resizable-panels v4 forces inline `display: flex` on the
-        Group element, so Tailwind classes like `hidden md:flex` cannot toggle
-        it directly. We wrap the Group in a sibling div that owns the
-        responsive visibility.
-      */}
-      <div className="hidden min-h-0 flex-1 md:block">
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1">
         <ResizablePanelGroup
           orientation="horizontal"
           groupRef={groupRef}
@@ -317,7 +345,8 @@ export function NotesResizableLayout({
             <div className="flex h-full min-w-0 flex-col">{children}</div>
           </ResizablePanel>
         </ResizablePanelGroup>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

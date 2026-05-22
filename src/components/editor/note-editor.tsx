@@ -7,7 +7,6 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import UniqueID from "@tiptap/extension-unique-id";
-import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
 import Typography from "@tiptap/extension-typography";
@@ -38,6 +37,7 @@ import { uploadNoteImage } from "@/actions/upload";
 import { NOTE_COLORS } from "@/lib/constants";
 import type { GroupListItem } from "@/types/note";
 import { CustomTaskItem } from "@/lib/tiptap/custom-task-item";
+import { ResizableImage } from "@/lib/tiptap/resizable-image";
 import { enqueueNoteSave } from "@/lib/offline/note-outbox";
 import { writeNoteCache } from "@/lib/offline/note-cache";
 import { LinkDialog } from "@/components/editor/link-dialog";
@@ -132,7 +132,7 @@ export function NoteEditor({
         autolink: true,
         defaultProtocol: "https",
       }),
-      Image.configure({ allowBase64: false }),
+      ResizableImage.configure({ allowBase64: false }),
       Placeholder.configure({ placeholder: "开始书写…支持 Markdown 习惯与待办列表。" }),
       Typography,
     ],
@@ -148,31 +148,38 @@ export function NoteEditor({
       }
       inFlightRef.current = true;
 
-      // Fix 3: snapshot dirty state before await so new edits during the
-      // request will re-set the flag without being overwritten
+      const dirtyBeforeSave = dirtySinceSaveRef.current;
       dirtySinceSaveRef.current = false;
+      const restoreDirtyAfterFailedSave = () => {
+        if (dirtyBeforeSave) {
+          dirtySinceSaveRef.current = true;
+        }
+      };
 
       setSaveState("saving");
       try {
         let res: Awaited<ReturnType<typeof saveNoteFromEditor>>;
         try {
           // Fix 1: use ref (synchronous) instead of stale closure state
-          res = await saveNoteFromEditor(noteId, json, {
+          res = await saveNoteFromEditor(noteId, JSON.stringify(json), {
             expectedSyncVersion: lastSavedSyncVersionRef.current,
           });
         } catch (e) {
           if (isLikelyNetworkError(e)) {
             await enqueueNoteSave(noteId, json);
             setSaveState("error");
+            restoreDirtyAfterFailedSave();
             toast.warning("网络不可用，内容已加入本地队列，联网后将自动上传");
             return;
           }
           setSaveState("error");
+          restoreDirtyAfterFailedSave();
           toast.error("保存失败");
           return;
         }
         if ("conflict" in res && res.conflict) {
           setSaveState("error");
+          restoreDirtyAfterFailedSave();
           toast.error("保存冲突：便签已在其他端更新", {
             action: {
               label: "重新加载",
@@ -183,6 +190,7 @@ export function NoteEditor({
         }
         if ("error" in res && res.error) {
           setSaveState("error");
+          restoreDirtyAfterFailedSave();
           toast.error(res.error);
           return;
         }
@@ -255,6 +263,11 @@ export function NoteEditor({
 
   useEffect(() => {
     if (prevNoteIdRef.current !== noteId) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      pendingJsonRef.current = null;
       prevNoteIdRef.current = noteId;
       lastSavedSyncVersionRef.current = serverSyncVersion;
       setLastSavedSyncVersion(serverSyncVersion);
@@ -311,7 +324,7 @@ export function NoteEditor({
       fd.append("file", img);
       const r = await uploadNoteImage(fd);
       if ("error" in r && r.error) {
-        setSaveState("error");
+        toast.error(r.error);
         return;
       }
       if ("url" in r && r.url) {
@@ -354,7 +367,7 @@ export function NoteEditor({
     fd.append("file", file);
     const r = await uploadNoteImage(fd);
     if ("error" in r && r.error) {
-      setSaveState("error");
+      toast.error(r.error);
       return;
     }
     if ("url" in r && r.url) {

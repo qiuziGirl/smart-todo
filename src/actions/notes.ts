@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
 import { deriveTitleAndPlainText } from "@/lib/tiptap/content";
@@ -129,7 +129,32 @@ export async function updateNoteContent(
       });
       return { conflict: true, serverSyncVersion: row?.syncVersion ?? -1 };
     }
-    throw e;
+    // Surface a concise actionable error to the editor instead of throwing an
+    // opaque server action error, so users/devs can diagnose save failures.
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error("[updateNoteContent] Prisma known error", {
+        code: e.code,
+        meta: e.meta,
+        noteId,
+        userId: user.id,
+      });
+      return { error: `保存失败（数据库错误 ${e.code}）` };
+    }
+    if (e instanceof Error) {
+      console.error("[updateNoteContent] Unexpected error", {
+        message: e.message,
+        stack: e.stack,
+        noteId,
+        userId: user.id,
+      });
+      return { error: `保存失败（${e.message}）` };
+    }
+    console.error("[updateNoteContent] Non-error throw", {
+      value: String(e),
+      noteId,
+      userId: user.id,
+    });
+    return { error: "保存失败（未知错误）" };
   }
   revalidatePath("/notes", "layout");
   revalidatePath(`/notes/${noteId}`, "page");
@@ -146,7 +171,8 @@ export async function saveNoteFromEditor(
     skipExpectedVersion?: boolean;
   }
 ): Promise<NoteContentSaveResult> {
-  const withIds = ensureTaskItemBlockIds(docJson) as Prisma.InputJsonValue;
+  const parsedDocJson = typeof docJson === "string" ? JSON.parse(docJson) : docJson;
+  const withIds = ensureTaskItemBlockIds(parsedDocJson) as Prisma.InputJsonValue;
   const { contentText, title } = deriveTitleAndPlainText(withIds);
   return updateNoteContent(noteId, withIds, contentText, title, options);
 }
@@ -163,7 +189,10 @@ export async function moveNoteToGroup(noteId: string, groupId: string | null) {
   }
   const updated = await prisma.note.updateMany({
     where: { id: noteId, userId: user.id, isDeleted: false },
-    data: { groupId },
+    data: {
+      groupId,
+      syncVersion: { increment: 1 },
+    },
   });
   if (updated.count === 0) {
     return { error: "便签不存在" };
@@ -176,7 +205,11 @@ export async function softDeleteNote(noteId: string) {
   const user = await requireUser();
   await prisma.note.updateMany({
     where: { id: noteId, userId: user.id },
-    data: { isDeleted: true, deletedAt: new Date() },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+      syncVersion: { increment: 1 },
+    },
   });
   revalidatePath("/notes", "layout");
   revalidatePath("/notes/trash", "page");
@@ -188,7 +221,11 @@ export async function restoreNote(noteId: string) {
   const user = await requireUser();
   await prisma.note.updateMany({
     where: { id: noteId, userId: user.id },
-    data: { isDeleted: false, deletedAt: null },
+    data: {
+      isDeleted: false,
+      deletedAt: null,
+      syncVersion: { increment: 1 },
+    },
   });
   revalidatePath("/notes", "layout");
   revalidatePath("/notes/trash", "page");
@@ -200,7 +237,10 @@ export async function togglePinNote(noteId: string, isPinned: boolean) {
   const user = await requireUser();
   await prisma.note.updateMany({
     where: { id: noteId, userId: user.id, isDeleted: false },
-    data: { isPinned },
+    data: {
+      isPinned,
+      syncVersion: { increment: 1 },
+    },
   });
   revalidatePath("/notes", "layout");
   return { ok: true };
@@ -210,7 +250,10 @@ export async function setNoteColor(noteId: string, color: string | null) {
   const user = await requireUser();
   await prisma.note.updateMany({
     where: { id: noteId, userId: user.id, isDeleted: false },
-    data: { color },
+    data: {
+      color,
+      syncVersion: { increment: 1 },
+    },
   });
   revalidatePath("/notes", "layout");
   revalidatePath(`/notes/${noteId}`, "page");
