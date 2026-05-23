@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma/client";
 import { extractTodosFromDocJson } from "@/lib/tiptap/todo-doc";
 
 /** 在事务内根据便签正文 JSON 全量对齐 `todo_items`（删孤儿 + upsert） */

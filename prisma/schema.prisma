@@ -3,13 +3,12 @@
 // 鉴权用户由 Supabase Auth 管理（auth.users 表），业务表通过 userId(uuid) 关联
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 /// 用户业务侧资料（与 auth.users 一对一）
