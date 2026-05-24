@@ -13,7 +13,7 @@
 - **状态**：Zustand + TanStack Query
 - **编辑器**：Tiptap (ProseMirror)
 - **后端**：Supabase (Postgres + Auth + Storage + Realtime)
-- **ORM**：Prisma 6
+- **ORM**：Prisma 7
 - **本地存储**：localForage (IndexedDB)
 - **拖拽**：dnd-kit
 - **表单**：React Hook Form + Zod

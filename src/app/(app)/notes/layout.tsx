@@ -9,6 +9,7 @@ import { NoteList } from "@/components/notes/note-list";
 import { GroupsPanel } from "@/components/notes/groups-panel";
 import { NotesResizableLayout } from "@/components/notes/notes-resizable-layout";
 import { Trash2 } from "lucide-react";
+import { NoteSearchBox } from "@/components/notes/note-search-box";
 
 export default async function NotesLayout({
   children,
@@ -43,6 +44,7 @@ export default async function NotesLayout({
     isPinned: n.isPinned,
     groupId: n.groupId,
     preview: n.contentText.replace(/\s+/g, " ").trim().slice(0, 100),
+    searchText: n.contentText,
   }));
 
   const mobileAction = (
@@ -71,6 +73,7 @@ export default async function NotesLayout({
   const middlePanel = (
     <>
       <div className="border-b px-3 py-2 text-sm font-medium text-muted-foreground">便签列表</div>
+      <NoteSearchBox />
       <ScrollArea className="h-44 md:flex-1 md:min-h-0">
         <NoteList notes={listItems} />
       </ScrollArea>

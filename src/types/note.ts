@@ -5,6 +5,7 @@ export type NoteListItem = {
   isPinned: boolean;
   groupId: string | null;
   preview: string;
+  searchText: string;
 };
 
 export type GroupListItem = {

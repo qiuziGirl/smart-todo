@@ -8,6 +8,7 @@ import { SignOutSubmit } from "@/components/auth/sign-out-submit";
 import { createBlankNote } from "@/actions/notes";
 import { AppSyncBridge } from "@/components/app/app-sync-bridge";
 import { WebPushSubscribeButton } from "@/components/push/web-push-subscribe-button";
+import { ThemeToggle } from "@/components/app/theme-toggle";
 
 export default async function AppLayout({
   children,
@@ -38,6 +39,7 @@ export default async function AppLayout({
           </Button>
         </form>
         <div className="min-w-2 flex-1" />
+        <ThemeToggle />
         <WebPushSubscribeButton />
         <span className="hidden max-w-[200px] truncate text-base text-muted-foreground md:inline">
           {user.email}

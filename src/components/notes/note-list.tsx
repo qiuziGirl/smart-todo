@@ -16,9 +16,15 @@ export function NoteList({ notes }: NoteListProps) {
   const searchParams = useSearchParams();
   const activeId = pathname.startsWith("/notes/") ? pathname.split("/")[2] : null;
   const activeGroupId = searchParams.get("groupId");
-  const filteredNotes = activeGroupId
+  const keyword = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const groupedNotes = activeGroupId
     ? notes.filter((note) => note.groupId === activeGroupId)
     : notes;
+  const filteredNotes = keyword
+    ? groupedNotes.filter((note) =>
+        `${note.title ?? ""} ${note.searchText}`.toLowerCase().includes(keyword)
+      )
+    : groupedNotes;
 
   function noteHref(noteId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -28,9 +34,19 @@ export function NoteList({ notes }: NoteListProps) {
   }
 
   if (filteredNotes.length === 0) {
+    const hasGroup = Boolean(activeGroupId);
+    const hasKeyword = Boolean(keyword);
+    let text = "暂无便签，点击右侧新建。";
+    if (hasGroup && hasKeyword) {
+      text = "该分组下没有匹配的便签。";
+    } else if (hasGroup) {
+      text = "该分组暂无便签。";
+    } else if (hasKeyword) {
+      text = "没有匹配的便签。";
+    }
     return (
       <p className="p-3 text-sm text-muted-foreground">
-        {activeGroupId ? "该分组暂无便签。" : "暂无便签，点击右侧新建。"}
+        {text}
       </p>
     );
   }
