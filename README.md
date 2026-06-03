@@ -28,7 +28,7 @@
 > **数据库**：若本地库在 M2 之前已创建，请再执行一次 `npm run db:push`，以创建 `todo_items(note_id, block_id)` 唯一约束（Prisma `@@unique`）。
 - [x] **M3** 同步与离线：Supabase Realtime 订阅 `notes` / `groups` / `todo_items` + 防抖 `router.refresh`；IndexedDB 离线保存队列与成功快照缓存；`syncVersion` 乐观锁与冲突提示；联网自动重放队列（`npm run db:realtime` 将表加入 publication，见下文）
 - [x] **M4** 推送：Web Push（`public/sw.js` + VAPID）、订阅写入 `push_subscriptions`、`/api/cron/remind` 扫描 `TodoItem.remindAt` 并发送通知；**生产环境由自建云服务器 crontab** 定时 `curl` 该接口（Vercel Hobby 不支持分钟级 [Vercel Cron](https://vercel.com/docs/cron-jobs/usage-and-pricing)）；**FCM 仍可选**（见需求文档 9）
-- [ ] **M5** PWA 与体验细节
+- [x] **M5** PWA 与体验细节：PWA 图标、主题切换、便签搜索、回收站 30 天自动清理
 
 ## 快速开始
 
@@ -139,6 +139,16 @@ npm run dev
       - [ ] 云服务器已配置 `crontab`（或等价定时任务）定时 `curl` 生产 `/api/cron/remind`，且 Bearer 与 Vercel 上 `CRON_SECRET` 一致（可先 `tail -f` 日志或临时去掉 `>>` 看输出）  
       - [ ] （可选）本地生产冒烟：`npm run build` 后 `npx dotenv -e .env.local -- npx next start -p 3006`，另开终端设置 `CRON_TEST_URL=http://localhost:3006` 再执行 `npm run verify:m4-cron`
 
+12. **回收站自动清理（M5）**  
+    - `/api/cron/trash-cleanup` 使用同一个 `CRON_SECRET` 鉴权，物理删除已进入回收站超过 30 天的便签；`TodoItem` 会随便签外键级联删除。  
+    - 推荐在生产 crontab 中每天调用一次，例如：
+
+      ```bash
+      15 3 * * * curl -fsS -m 60 -H "Authorization: Bearer YOUR_SECRET" "https://你的生产域名/api/cron/trash-cleanup" >>"$HOME/logs/smart-todo-trash-cleanup.log" 2>&1
+      ```
+
+    - 本地无破坏自检（只统计不删除）：`npm run verify:m5-trash-cleanup`。
+
 ## 常用脚本
 
 | 命令 | 说明 |
@@ -157,6 +167,7 @@ npm run dev
 | `npm run db:storage` | 创建 `note-images` 桶及 Storage 策略（可重复执行） |
 | `npm run db:realtime` | 将 `notes` / `groups` / `todo_items` 加入 `supabase_realtime` publication（可重复执行，已存在表可能报错可忽略） |
 | `npm run verify:m4-cron` | M4：校验 Cron 相关环境变量并请求 `/api/cron/remind`（默认 `localhost:3005`，可用 `CRON_TEST_URL` 覆盖） |
+| `npm run verify:m5-trash-cleanup` | M5：以 dry-run 方式校验回收站 30 天清理接口（默认 `localhost:3005`，可用 `CRON_TEST_URL` 覆盖） |
 
 ## 目录结构
 

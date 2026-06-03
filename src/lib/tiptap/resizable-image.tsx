@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "@tiptap/extension-image";
 import { ReactNodeViewRenderer, NodeViewWrapper, type ReactNodeViewProps } from "@tiptap/react";
-import { AlignCenter, AlignLeft, AlignRight, ImageUp, Trash2, X, ZoomIn } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ImageUp,
+  MoveDiagonal2,
+  Trash2,
+  X,
+  ZoomIn,
+} from "lucide-react";
 import { toast } from "sonner";
 import { uploadNoteImage } from "@/actions/upload";
 import { cn } from "@/lib/utils";
@@ -60,6 +69,7 @@ function ResizableImageView({
   const displayWidth = resizeWidth ?? persistedWidth;
   const showCaption = selected || caption.trim().length > 0;
   const showPreviewButton = hovered || selected || previewOpen;
+  const showResizeHandle = hovered || selected || resizeWidth !== null;
 
   useEffect(() => {
     // 外部 attrs 更新时，同步到草稿值；若输入框未聚焦则同步可见文本。
@@ -393,7 +403,7 @@ function ResizableImageView({
             position: "absolute",
             right: "0.5rem",
             top: "0.5rem",
-            zIndex: 20,
+            zIndex: 25,
             display: "inline-flex",
             width: "2rem",
             height: "2rem",
@@ -412,14 +422,24 @@ function ResizableImageView({
         >
           <ZoomIn className="size-4" />
         </button>
-        {selected && (
-          <button
-            type="button"
-            className="tiptap-image-resize-handle tiptap-image-node-controls"
-            onPointerDown={onResizePointerDown}
-            onKeyDown={onResizeKeyDown}
-            aria-label="调整图片大小"
-          />
+        {showResizeHandle && (
+          <>
+            <span className="tiptap-image-resize-guide" aria-hidden="true" />
+            <button
+              type="button"
+              className="tiptap-image-resize-handle tiptap-image-node-controls"
+              onPointerDown={onResizePointerDown}
+              onClick={(e) => {
+                // Prevent bubbling to frame click handler, which would open preview
+                // and interrupt resize interaction.
+                e.stopPropagation();
+              }}
+              onKeyDown={onResizeKeyDown}
+              aria-label="调整图片大小"
+            >
+              <MoveDiagonal2 className="size-3.5" />
+            </button>
+          </>
         )}
         <input
           ref={fileRef}

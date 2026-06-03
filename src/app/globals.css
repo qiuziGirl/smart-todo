@@ -195,11 +195,14 @@
 }
 .tiptap-editor .tiptap-image-frame {
   position: relative;
+  isolation: isolate;
   max-width: 100%;
   line-height: 0;
   cursor: zoom-in;
 }
 .tiptap-editor .tiptap-image-frame img {
+  position: relative;
+  z-index: 0;
   display: block;
   max-width: 100%;
   height: auto;
@@ -215,7 +218,7 @@
   position: absolute;
   left: 0.5rem;
   top: 0.5rem;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   align-items: center;
   gap: 0.125rem;
@@ -231,7 +234,7 @@
   position: absolute;
   right: 0.5rem;
   top: 0.5rem;
-  z-index: 20;
+  z-index: 25;
   display: inline-flex;
   width: 2rem;
   height: 2rem;
@@ -262,18 +265,49 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+.tiptap-editor .tiptap-image-resize-guide {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 34;
+  width: 1px;
+  background: color-mix(in srgb, var(--ring) 70%, transparent);
+  pointer-events: none;
+}
 .tiptap-editor .tiptap-image-resize-handle {
   position: absolute;
-  right: -0.45rem;
-  bottom: -0.45rem;
-  z-index: 20;
-  width: 0.85rem;
-  height: 0.85rem;
-  border: 2px solid var(--background);
+  right: -0.65rem;
+  bottom: -0.65rem;
+  z-index: 35;
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--ring);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
   cursor: nwse-resize;
+  opacity: 1;
+  pointer-events: auto;
+  touch-action: none;
+  transition:
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+.tiptap-editor .tiptap-image-resize-handle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.tiptap-editor .tiptap-image-resize-handle:hover {
+  background: var(--popover);
+  transform: scale(1.04);
+}
+.tiptap-editor .tiptap-image-resize-handle svg {
+  pointer-events: none;
 }
 .tiptap-editor .tiptap-image-resize-handle:focus-visible {
   outline: 2px solid var(--ring);
