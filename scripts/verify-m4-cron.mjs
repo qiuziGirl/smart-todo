@@ -29,14 +29,53 @@ if (!process.env.NEXT_PUBLIC_APP_URL?.trim()) {
   );
 }
 
-const url = `${base}/api/cron/remind`;
-const res = await fetch(url, {
-  headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
-});
-const body = await res.json().catch(() => ({}));
+function isConnRefused(err) {
+  if (err?.code === "ECONNREFUSED") return true;
+  if (err?.cause?.code === "ECONNREFUSED") return true;
+  const agg = err?.cause;
+  if (agg?.name === "AggregateError" && Array.isArray(agg.errors)) {
+    return agg.errors.some((x) => x?.code === "ECONNREFUSED");
+  }
+  return false;
+}
 
-if (res.status !== 200 || body.ok !== true) {
-  console.error("Cron check failed", { status: res.status, body });
+const url = `${base}/api/cron/remind`;
+let res;
+try {
+  res = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` },
+  });
+} catch (e) {
+  if (isConnRefused(e)) {
+    console.error(
+      `Cannot connect to ${base} (ECONNREFUSED). Start the app first (e.g. pnpm run dev on port 3005), or set CRON_TEST_URL to a reachable base URL.`,
+    );
+  } else {
+    console.error("Request failed:", e?.message ?? e);
+  }
+  process.exit(1);
+}
+const text = await res.text();
+let body;
+try {
+  body = JSON.parse(text);
+} catch {
+  body = null;
+}
+
+if (res.status !== 200 || body?.ok !== true) {
+  const preview =
+    text.length > 800 ? `${text.slice(0, 800)}…(truncated)` : text;
+  console.error("Cron check failed", {
+    status: res.status,
+    json: body,
+    bodyPreview: preview || "(empty)",
+  });
+  if (res.status === 500 && !body) {
+    console.error(
+      "Hint: non-JSON 500 often means an unhandled server error (e.g. Prisma/DB). Check dev server terminal and DATABASE_URL.",
+    );
+  }
   process.exit(1);
 }
 

@@ -17,7 +17,8 @@
     "db:rls": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/20260513000000_enable_rls_policies.sql",
     "db:storage": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/20260513120000_storage_note_images.sql",
     "db:realtime": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/20260513140000_realtime_publication.sql",
-    "verify:m4-cron": "dotenv -e .env.local -- node scripts/verify-m4-cron.mjs"
+    "verify:m4-cron": "dotenv -e .env.local -- node scripts/verify-m4-cron.mjs",
+    "verify:m5-trash-cleanup": "dotenv -e .env.local -- node scripts/verify-m5-trash-cleanup.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
